@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Design-system tokens (OKLCH channels, без обгортки oklch() —
+     її додає tailwind.config.ts, щоб працювали opacity-модифікатори типу bg-accent/50) */
+  --color-background: 0.960 0.011 76.6;
+  --color-surface: 0.980 0.007 80.7;
+  --color-surface-dark: 0.245 0.023 45.9;
+  --color-ink: 0.198 0.012 48.1;
+  --color-ink-soft: 0.481 0.029 57.2;
+  --color-accent: 0.511 0.087 61.3;
+  --color-accent-dark: 0.424 0.072 59.3;
+  --color-secondary: 0.849 0.027 71.1;
+  --color-tertiary: 0.795 0.069 70.2;
+  --color-sale: 0.488 0.125 30.4;
+  --color-border: 0.759 0.027 67.4;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-white font-sans text-neutral-900 antialiased;
+}

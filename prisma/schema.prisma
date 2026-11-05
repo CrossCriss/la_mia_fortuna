@@ -1,0 +1,411 @@
+// Prisma schema — La Mia Fortuna Shoes, інтернет-магазин жіночого взуття
+// Стек: PostgreSQL + Prisma.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (pgbouncer) — для рантайма приложения
+  directUrl = env("DIRECT_URL") // прямое подключение — нужно Prisma для migrate/introspect на Supabase
+}
+
+// ---------------------------------------------------------------------------
+// Каталог
+// ---------------------------------------------------------------------------
+
+// Категория поддерживает вложенность (parent/children), чтобы получить
+// "Женское бельё" -> "Бюстгальтеры/Трусы/Комплекты/Пижамы" и "Мужское бельё"
+// одной моделью. "Новинки" и "Акции" — тоже строки Category (kind != REGULAR),
+// нужны для пунктов меню/SEO, но сами товары в них не лежат через parentId —
+// принадлежность определяется флагами Product.isNew / Product.isPromo,
+// поэтому список для этих двух пунктов собирается запросом по флагу, а не по FK.
+enum CategoryKind {
+  REGULAR
+  NEW_ARRIVALS
+  PROMO
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  kind      CategoryKind @default(REGULAR)
+  sortOrder Int          @default(0)
+  isVisible Boolean      @default(true)
+
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]  @relation("CategoryTree")
+
+  // Ручний вибір адміна для секцій-підбірок на головній (рекомендовано 3-4
+  // категорії, ліміт не в БД — лише підказка в UI /admin/categories).
+  isFeaturedOnHome Boolean @default(false)
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+}
+
+// Значение размера храним как свободную строку, чтобы покрыть и буквенную
+// сетку (S/M/L/XL), и цифровую (42, 75B и т.п.) — см. ТЗ §2 "Размер".
+model Size {
+  id        String   @id @default(cuid())
+  value     String   @unique
+  sortOrder Int      @default(0)
+
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+}
+
+// Цвет со swatch (hex) для отображения плашки цвета в фильтрах/карточке.
+model Color {
+  id  String @id @default(cuid())
+  name String @unique
+  hex  String // например "#E14B81"
+
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  sku String @unique // Артикул — обязателен
+
+  price         Decimal @db.Decimal(10, 2) // Цена
+  discountPrice Decimal? @db.Decimal(10, 2) // Скидочная цена (необязательна)
+
+  fabricComposition String? // Состав ткани
+  seoDescription    String? // SEO-описание
+  description       String? // Полное описание для карточки товара
+
+  isNew       Boolean @default(false) // попадает в "Новинки"
+  isPromo     Boolean @default(false) // попадает в "Акции"
+  isPublished Boolean @default(true)
+  isFeatured  Boolean @default(false) // "Топ продажів" — бейдж на головній, вручну в адмінці
+  showOnHomepage Boolean @default(false) // ручний відбір товарів для секцій-підбірок на головній
+
+  images   ProductImage[]
+  variants ProductVariant[]
+  reviews  Review[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([isNew])
+  @@index([isPromo])
+  @@index([name])
+}
+
+// Галерея товара — до 6 фото (лимит проверяется в приложении/админке).
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  url      String
+  alt      String?
+  position Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+// Конкретная комбинация размер+цвет для товара — здесь же хранится остаток
+// на складе, т.к. ТЗ требует остаток "по размеру/цвету", а не по товару в целом.
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  sizeId  String
+  size    Size  @relation(fields: [sizeId], references: [id], onDelete: Restrict)
+  colorId String
+  color   Color @relation(fields: [colorId], references: [id], onDelete: Restrict)
+
+  sku   String? // опциональный SKU конкретного варианта (если отличается от Product.sku)
+  stock Int     @default(0)
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, sizeId, colorId])
+  @@index([productId])
+}
+
+// Отзывы для блока "отзывы" на главной / в карточке товара.
+// productId необязателен — допускаем и общие отзывы о магазине.
+model Review {
+  id        String  @id @default(cuid())
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  authorName String
+  rating     Int // 1..5
+  text       String
+
+  isPublished Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Заказы
+// ---------------------------------------------------------------------------
+
+// новый -> (оплачен | наложка подтверждена) -> отправлен -> доставлен
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+// Способ оплаты выбирается переключателем на чекауте (ТЗ §3).
+// LIQPAY/MONOBANK — онлайн-оплата карткою; активний провайдер вибирається
+// змінною PAYMENT_PROVIDER (src/lib/payment/index.ts), в UI показується як
+// один пункт "Оплата карткою онлайн", не два окремих.
+enum PaymentMethod {
+  LIQPAY
+  MONOBANK
+  CASH_ON_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model PromoCode {
+  id    String @id @default(cuid())
+  code  String @unique
+
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(10, 2)
+
+  minOrderAmount Decimal? @db.Decimal(10, 2)
+  usageLimit     Int?
+  usedCount      Int      @default(0)
+  isActive       Boolean  @default(true)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Оформление заказа — быстрый чекаут без обязательной регистрации (ТЗ §3),
+// поэтому контактные и адресные поля хранятся прямо на заказе, без модели User.
+// shippingCity/shippingWarehouse — отображаемые названия (что показываем в
+// адмінці/листах), shippingCityRef/shippingWarehouseRef — Ref (GUID) з Nova
+// Poshta API, нужны для будущего расчёта стоимости/генерации ТТН; выбираются
+// автокомплітом на чекауті (src/lib/delivery/nova-poshta.ts), не вводятся руками.
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique // человекочитаемый номер, например GP-000123
+
+  status        OrderStatus   @default(NEW)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+
+  // Ідентифікатор рахунку/транзакції у платіжного провайдера (LiqPay order_id
+  // ми й самі задаємо = orderNumber; Monobank invoiceId — повертається їхнім API)
+  // і сирий payload останнього вебхука — для діагностики розбіжностей зі статусом.
+  paymentProviderInvoiceId String?
+  paymentProviderPayload  Json?
+
+  customerName  String
+  phone         String
+  email         String?
+
+  shippingCity         String?
+  shippingWarehouse    String? // отделение/адрес Новой Почты (отображаемое название)
+  shippingCityRef      String? // Nova Poshta Ref (GUID) города — из searchSettlements
+  shippingWarehouseRef String? // Nova Poshta Ref (GUID) отделения — из getWarehouses
+  trackingNumber       String? // ТТН — показывается на странице "Спасибо за заказ"
+
+  comment String?
+
+  promoCodeId String?
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+
+  // Nullable — гостьові замовлення без акаунту лишаються можливими (ТЗ §3).
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  subtotal      Decimal @db.Decimal(10, 2)
+  discountTotal Decimal @db.Decimal(10, 2) @default(0)
+  shippingCost  Decimal @db.Decimal(10, 2) @default(0)
+  total         Decimal @db.Decimal(10, 2)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([phone])
+  @@index([userId])
+}
+
+// Снапшот данных товара на момент заказа — заказ должен остаться корректным
+// даже если товар/вариант потом изменят или удалят.
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  productName String // снапшот названия
+  sku         String // снапшот артикула (включая вариант, если есть)
+  size        String? // снапшот размера
+  color       String? // снапшот цвета
+
+  price    Decimal @db.Decimal(10, 2) // цена за единицу на момент заказа
+  quantity Int
+  total    Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Кабінет клієнта: акаунт, накопичувальні знижки, збережені адреси
+// ---------------------------------------------------------------------------
+
+// Вхід за телефоном або email + пароль (обидва nullable — заповнюється лише
+// той, який клієнт обрав при реєстрації), або Google OAuth (passwordHash тоді
+// лишається null). Рівень знижки НЕ зберігається тут — рахується "наживо" з
+// Order через src/lib/loyalty.ts, щоб не було проблеми застарілого кешу.
+model User {
+  id            String    @id @default(cuid())
+  phone         String?   @unique
+  email         String?   @unique
+  passwordHash  String?
+  name          String?
+  image         String?
+  emailVerified DateTime?
+
+  accounts       Account[]
+  sessions       Session[]
+  orders         Order[]
+  savedAddresses SavedAddress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Стандартна схема NextAuth Prisma-adapter (лінкування Google-акаунту до User).
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Не використовується напряму (session.strategy = "jwt" в src/lib/auth.ts),
+// але потрібна для типів @next-auth/prisma-adapter.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Дані доставки з останніх оформлених замовлень — автозаповнюються при
+// чекауті (upsert в POST /api/orders), редагуються в /account/profile.
+model SavedAddress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  recipientName String
+  phone         String
+  city          String
+  warehouse     String
+  cityRef       String? // Nova Poshta Ref — для автозаповнення чекауту без повторного пошуку
+  warehouseRef  String?
+  isDefault     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Админка
+// ---------------------------------------------------------------------------
+
+enum AdminRole {
+  ADMIN
+  MANAGER
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         AdminRole @default(MANAGER)
+  isActive     Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
