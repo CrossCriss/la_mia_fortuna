@@ -9,7 +9,24 @@ type CategoryOption = { id: string; label: string };
 type SizeOption = { id: string; value: string };
 type ColorOption = { id: string; name: string; hex: string };
 
+type ColorBlock = {
+  colorId: string;
+  // sizeId -> кількість пар; розмір без запису в об'єкті трактується як 0
+  stockBySizeId: Record<string, number>;
+};
+
 const MAX_IMAGES = 6;
+
+// Групуємо "пласкі" варіанти (розмір+колір+залишок) з БД у блоки по кольору
+// — так їх і редагує адмінка (одна матриця розмірів на колір).
+function buildInitialColorBlocks(variants: ProductFormValues["variants"]): ColorBlock[] {
+  const byColor = new Map<string, Record<string, number>>();
+  for (const variant of variants) {
+    if (!byColor.has(variant.colorId)) byColor.set(variant.colorId, {});
+    byColor.get(variant.colorId)![variant.sizeId] = variant.stock;
+  }
+  return Array.from(byColor.entries()).map(([colorId, stockBySizeId]) => ({ colorId, stockBySizeId }));
+}
 
 export function ProductForm({
   productId,
@@ -28,6 +45,9 @@ export function ProductForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<ProductFormValues>(initialValues);
+  const [colorBlocks, setColorBlocks] = useState<ColorBlock[]>(() =>
+    buildInitialColorBlocks(initialValues.variants)
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,25 +58,19 @@ export function ProductForm({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function addVariant() {
-    updateField("variants", [
-      ...form.variants,
-      { sizeId: sizes[0]?.id ?? "", colorId: colors[0]?.id ?? "", stock: 0 },
-    ]);
+  function addColorBlock() {
+    const usedIds = new Set(colorBlocks.map((block) => block.colorId));
+    const nextColor = colors.find((color) => !usedIds.has(color.id));
+    if (!nextColor) return;
+    setColorBlocks((prev) => [...prev, { colorId: nextColor.id, stockBySizeId: {} }]);
   }
 
-  function updateVariant(index: number, patch: Partial<ProductFormValues["variants"][number]>) {
-    updateField(
-      "variants",
-      form.variants.map((variant, i) => (i === index ? { ...variant, ...patch } : variant))
-    );
+  function updateColorBlock(index: number, patch: Partial<ColorBlock>) {
+    setColorBlocks((prev) => prev.map((block, i) => (i === index ? { ...block, ...patch } : block)));
   }
 
-  function removeVariant(index: number) {
-    updateField(
-      "variants",
-      form.variants.filter((_, i) => i !== index)
-    );
+  function removeColorBlock(index: number) {
+    setColorBlocks((prev) => prev.filter((_, i) => i !== index));
   }
 
   function removeImage(index: number) {
@@ -107,7 +121,22 @@ export function ProductForm({
     event.preventDefault();
     setSubmitError(null);
 
-    const result = productFormSchema.safeParse(form);
+    // id наявних варіантів (щоб PUT оновлював, а не видаляв і створював
+    // заново кожну клітинку матриці, яку адмінка не чіпала).
+    const existingIdByKey = new Map(
+      initialValues.variants.map((variant) => [`${variant.sizeId}:${variant.colorId}`, variant.id])
+    );
+    const variants = colorBlocks.flatMap((block) =>
+      sizes.map((size) => ({
+        id: existingIdByKey.get(`${size.id}:${block.colorId}`),
+        sizeId: size.id,
+        colorId: block.colorId,
+        stock: block.stockBySizeId[size.id] ?? 0,
+      }))
+    );
+
+    const payload: ProductFormValues = { ...form, variants };
+    const result = productFormSchema.safeParse(payload);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       for (const issue of result.error.issues) {
@@ -154,24 +183,6 @@ export function ProductForm({
           />
         </Field>
 
-        <Field label="Slug" error={errors.slug}>
-          <input
-            type="text"
-            value={form.slug}
-            onChange={(e) => updateField("slug", e.target.value)}
-            className={inputClass(errors.slug)}
-          />
-        </Field>
-
-        <Field label="Артикул (SKU)" error={errors.sku}>
-          <input
-            type="text"
-            value={form.sku}
-            onChange={(e) => updateField("sku", e.target.value)}
-            className={inputClass(errors.sku)}
-          />
-        </Field>
-
         <Field label="Категорія" error={errors.categoryId}>
           <select
             value={form.categoryId}
@@ -211,9 +222,10 @@ export function ProductForm({
       </section>
 
       <section className="grid gap-4">
-        <Field label="Склад тканини (необов'язково)">
+        <Field label="Матеріал (необов'язково)">
           <input
             type="text"
+            placeholder="Напр. натуральна шкіра, хутрова підкладка"
             value={form.fabricComposition ?? ""}
             onChange={(e) => updateField("fabricComposition", e.target.value)}
             className={inputClass()}
@@ -229,16 +241,15 @@ export function ProductForm({
           />
         </Field>
 
-        <Field label="SEO-опис (необов'язково)">
-          <textarea
-            value={form.seoDescription ?? ""}
-            onChange={(e) => updateField("seoDescription", e.target.value)}
-            rows={2}
-            className={inputClass()}
-          />
-        </Field>
-
         <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.isPublished}
+              onChange={(e) => updateField("isPublished", e.target.checked)}
+            />
+            Показувати на сайті
+          </label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -258,18 +269,10 @@ export function ProductForm({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={form.isPublished}
-              onChange={(e) => updateField("isPublished", e.target.checked)}
-            />
-            Опубліковано
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
               checked={form.isFeatured}
               onChange={(e) => updateField("isFeatured", e.target.checked)}
             />
-            Топ продажів (бейдж на головній)
+            Значок «Топ продажів»
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -277,7 +280,7 @@ export function ProductForm({
               checked={form.showOnHomepage}
               onChange={(e) => updateField("showOnHomepage", e.target.checked)}
             />
-            На головній (ручний відбір у секції категорії)
+            Закріпити на головній сторінці
           </label>
         </div>
       </section>
@@ -339,86 +342,96 @@ export function ProductForm({
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-900">Розміри, кольори, залишки</h2>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-900">Кольори й залишки за розмірами</h2>
           <button
             type="button"
-            onClick={addVariant}
-            className="text-sm text-neutral-700 hover:underline"
+            onClick={addColorBlock}
+            disabled={colorBlocks.length >= colors.length}
+            className="text-sm text-neutral-700 hover:underline disabled:opacity-40"
           >
-            + Додати варіант
+            + Додати колір
           </button>
         </div>
+        <p className="mb-3 text-xs text-neutral-500">
+          Для кожного кольору вкажіть, скільки пар є в наявності за кожним розміром. 0 означає
+          «немає в наявності» — такий розмір на сайті буде показано закресленим.
+        </p>
         {errors.variants && <p className="mb-2 text-xs text-red-600">{errors.variants}</p>}
 
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">Розмір</th>
-                <th className="px-3 py-2 font-medium">Колір</th>
-                <th className="px-3 py-2 font-medium">Залишок</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {form.variants.map((variant, index) => (
-                <tr key={variant.id ?? index} className="border-b border-neutral-100 last:border-0">
-                  <td className="px-3 py-2">
+        <div className="space-y-3">
+          {colorBlocks.map((block, index) => {
+            const usedByOthers = new Set(
+              colorBlocks.filter((_, i) => i !== index).map((other) => other.colorId)
+            );
+            const availableColors = colors.filter(
+              (color) => color.id === block.colorId || !usedByOthers.has(color.id)
+            );
+            const selectedColor = colors.find((color) => color.id === block.colorId);
+
+            return (
+              <div key={index} className="rounded-lg border border-neutral-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {selectedColor && (
+                      <span
+                        className="h-5 w-5 shrink-0 rounded-full border border-neutral-300"
+                        style={{ backgroundColor: selectedColor.hex }}
+                      />
+                    )}
                     <select
-                      value={variant.sizeId}
-                      onChange={(e) => updateVariant(index, { sizeId: e.target.value })}
+                      value={block.colorId}
+                      onChange={(e) => updateColorBlock(index, { colorId: e.target.value })}
                       className={inputClass()}
                     >
-                      {sizes.map((size) => (
-                        <option key={size.id} value={size.id}>
-                          {size.value}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={variant.colorId}
-                      onChange={(e) => updateVariant(index, { colorId: e.target.value })}
-                      className={inputClass()}
-                    >
-                      {colors.map((color) => (
+                      {availableColors.map((color) => (
                         <option key={color.id} value={color.id}>
                           {color.name}
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={variant.stock}
-                      onChange={(e) => updateVariant(index, { stock: Number(e.target.value) })}
-                      className={inputClass()}
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(index)}
-                      className="text-sm text-red-600 hover:underline"
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeColorBlock(index)}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Видалити колір
+                  </button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {sizes.map((size) => (
+                    <label
+                      key={size.id}
+                      className="flex flex-col items-center gap-1 text-xs text-neutral-500"
                     >
-                      Видалити
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {form.variants.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-neutral-400">
-                    Варіантів ще немає.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                      <span className="font-semibold text-neutral-700">{size.value}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={block.stockBySizeId[size.id] ?? 0}
+                        onChange={(e) =>
+                          updateColorBlock(index, {
+                            stockBySizeId: {
+                              ...block.stockBySizeId,
+                              [size.id]: Math.max(0, Number(e.target.value)),
+                            },
+                          })
+                        }
+                        className="h-9 w-14 rounded-lg border border-neutral-300 text-center text-sm focus:border-neutral-500 focus:outline-none"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {colorBlocks.length === 0 && (
+            <p className="rounded-lg border border-dashed border-neutral-300 px-3 py-6 text-center text-sm text-neutral-400">
+              Кольорів ще немає — натисніть «+ Додати колір».
+            </p>
+          )}
         </div>
       </section>
 

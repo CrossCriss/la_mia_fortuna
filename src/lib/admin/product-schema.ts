@@ -16,12 +16,12 @@ export const productVariantSchema = z.object({
 export const productFormSchema = z
   .object({
     name: z.string().trim().min(2, "Вкажіть назву"),
-    slug: z
-      .string()
-      .trim()
-      .min(2, "Вкажіть slug")
-      .regex(/^[a-z0-9-]+$/, "Лише латиниця, цифри й дефіс"),
-    sku: z.string().trim().min(1, "Вкажіть артикул"),
+    // Slug і артикул (SKU) більше не вводяться вручну — генеруються
+    // автоматично на сервері з назви товару (див. /api/admin/products).
+    // Поле лишається в схемі, бо при редагуванні форма передає вже наявні
+    // значення без змін (uniqueness не перевіряється повторно).
+    slug: z.string().trim().optional(),
+    sku: z.string().trim().optional(),
     categoryId: z.string().min(1, "Оберіть категорію"),
     price: z.number().positive("Ціна має бути більшою за 0"),
     discountPrice: z.number().positive("Ціна має бути більшою за 0").nullable(),
@@ -36,7 +36,7 @@ export const productFormSchema = z
     images: z.array(productImageSchema).max(6, "Не більше 6 фото"),
     variants: z
       .array(productVariantSchema)
-      .min(1, "Додайте хоча б один варіант (розмір/колір)"),
+      .min(1, "Додайте хоча б один колір і вкажіть кількість пар"),
   })
   .refine(
     (data) => {
