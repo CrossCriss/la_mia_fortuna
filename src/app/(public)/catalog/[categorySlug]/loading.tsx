@@ -25,7 +25,7 @@ export default function CategoryLoading() {
         </aside>
 
         <div className="flex-1">
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:gap-8">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i}>
                 <div className="aspect-[3/4] rounded-photo bg-neutral-200" />

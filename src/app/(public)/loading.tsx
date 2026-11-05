@@ -26,8 +26,8 @@ export default function HomeLoading() {
               <div className="h-6 w-48 rounded bg-neutral-200" />
               <div className="h-4 w-24 rounded bg-neutral-200" />
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 lg:gap-8">
-              {Array.from({ length: 4 }).map((_, i) => (
+            <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:gap-8">
+              {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i}>
                   <div className="aspect-[3/4] rounded-photo bg-neutral-200" />
                   <div className="mt-2.5 space-y-1.5">

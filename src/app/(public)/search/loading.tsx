@@ -6,7 +6,7 @@ export default function SearchLoading() {
       <div className="h-8 w-80 rounded bg-neutral-200" />
       <div className="mt-2 h-4 w-40 rounded bg-neutral-200" />
 
-      <div className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 lg:gap-8">
+      <div className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:gap-8">
         {Array.from({ length: 12 }).map((_, i) => (
           <div key={i}>
             <div className="aspect-[3/4] rounded-photo bg-neutral-200" />
