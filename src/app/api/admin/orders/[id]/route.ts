@@ -6,9 +6,8 @@ export const dynamic = "force-dynamic";
 
 const updateOrderSchema = z.object({
   status: z.enum(["NEW", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELED"]).optional(),
-  // Реального LiqPay-колбека ще немає — адмін проставляє PAID вручну після
-  // підтвердження оплати, це і є тригер нарахування накопичувальної знижки
-  // для LiqPay-замовлень (див. src/lib/loyalty.ts).
+  // Вебхуки платіжних провайдерів самі підтягують paymentStatus — це ручний
+  // override на випадок, якщо вебхук не дійшов.
   paymentStatus: z.enum(["PENDING", "PAID", "FAILED", "REFUNDED"]).optional(),
   trackingNumber: z.string().trim().optional(),
 });

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createOrderSchema } from "@/lib/checkout-schema";
-import { getLoyaltySummary } from "@/lib/loyalty";
 import { getActivePaymentMethod, getPaymentProvider } from "@/lib/payment";
 import type { PaymentInit } from "@/lib/payment/types";
 
@@ -62,17 +59,6 @@ export async function POST(request: Request) {
 
   const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
 
-  // Знижку за накопичувальним рівнем рахуємо тільки на сервері (з сесії),
-  // клієнт не може передати userId/відсоток самостійно.
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-
-  let discountTotal = 0;
-  if (userId) {
-    const { tier } = await getLoyaltySummary(userId);
-    discountTotal = Math.round(subtotal * (tier.percent / 100));
-  }
-
   const isOnlineCard = customer.paymentMethod === "ONLINE_CARD";
   const paymentMethod = isOnlineCard ? getActivePaymentMethod() : "CASH_ON_DELIVERY";
 
@@ -90,45 +76,11 @@ export async function POST(request: Request) {
       shippingWarehouseRef: customer.shippingWarehouseRef,
       comment: comment || undefined,
       subtotal,
-      discountTotal,
-      total: subtotal - discountTotal,
-      userId,
+      total: subtotal,
       items: { create: orderItems },
     },
     include: { items: true },
   });
-
-  if (userId) {
-    const existing = await prisma.savedAddress.findFirst({
-      where: { userId, city: customer.shippingCity, warehouse: customer.shippingWarehouse },
-    });
-
-    if (existing) {
-      await prisma.savedAddress.update({
-        where: { id: existing.id },
-        data: {
-          recipientName: customer.customerName,
-          phone: customer.phone,
-          cityRef: customer.shippingCityRef,
-          warehouseRef: customer.shippingWarehouseRef,
-        },
-      });
-    } else {
-      await prisma.savedAddress.updateMany({ where: { userId }, data: { isDefault: false } });
-      await prisma.savedAddress.create({
-        data: {
-          userId,
-          recipientName: customer.customerName,
-          phone: customer.phone,
-          city: customer.shippingCity,
-          warehouse: customer.shippingWarehouse,
-          cityRef: customer.shippingCityRef,
-          warehouseRef: customer.shippingWarehouseRef,
-          isDefault: true,
-        },
-      });
-    }
-  }
 
   if (!isOnlineCard) {
     return NextResponse.json(order, { status: 201 });

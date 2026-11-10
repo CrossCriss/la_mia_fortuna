@@ -44,6 +44,10 @@ model Category {
   // категорії, ліміт не в БД — лише підказка в UI /admin/categories).
   isFeaturedOnHome Boolean @default(false)
 
+  // Обкладинка категорії (плитки на головній, грід /catalog) — поки без
+  // поля в адмінці, підставляється розробником вручну за запитом клієнтки.
+  imageUrl String?
+
   products Product[]
 
   createdAt DateTime @default(now())
@@ -259,10 +263,6 @@ model Order {
   promoCodeId String?
   promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
-  // Nullable — гостьові замовлення без акаунту лишаються можливими (ТЗ §3).
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
   subtotal      Decimal @db.Decimal(10, 2)
   discountTotal Decimal @db.Decimal(10, 2) @default(0)
   shippingCost  Decimal @db.Decimal(10, 2) @default(0)
@@ -275,7 +275,6 @@ model Order {
 
   @@index([status])
   @@index([phone])
-  @@index([userId])
 }
 
 // Снапшот данных товара на момент заказа — заказ должен остаться корректным
@@ -303,90 +302,26 @@ model OrderItem {
 }
 
 // ---------------------------------------------------------------------------
-// Кабінет клієнта: акаунт, накопичувальні знижки, збережені адреси
+// Налаштування сайту (банер і сезонна колекція на головній)
 // ---------------------------------------------------------------------------
 
-// Вхід за телефоном або email + пароль (обидва nullable — заповнюється лише
-// той, який клієнт обрав при реєстрації), або Google OAuth (passwordHash тоді
-// лишається null). Рівень знижки НЕ зберігається тут — рахується "наживо" з
-// Order через src/lib/loyalty.ts, щоб не було проблеми застарілого кешу.
-model User {
-  id            String    @id @default(cuid())
-  phone         String?   @unique
-  email         String?   @unique
-  passwordHash  String?
-  name          String?
-  image         String?
-  emailVerified DateTime?
+// Один рядок-синглтон (перший знайдений прочитується як поточні
+// налаштування, див. src/lib/site-settings.ts). Фото банера на головній і
+// "сезонна колекція" — підпис + категорія, на яку ведуть картка на банері
+// й пункт меню (зараз "Зима 2027", пізніше клієнтка сама зміните на
+// "Весна 2028" тощо) — зберігаються тут, а не хардкодяться в компонентах.
+model SiteSettings {
+  id String @id @default(cuid())
 
-  accounts       Account[]
-  sessions       Session[]
-  orders         Order[]
-  savedAddresses SavedAddress[]
+  heroImageUrl String?
+  heroImageAlt String?
 
-  createdAt DateTime @default(now())
+  seasonalLabel String @default("Нова колекція")
+  // Без @relation навмисно: якщо категорію видалять, просто ігноруємо
+  // "осиротілий" id замість каскадного видалення/помилки при сейві.
+  seasonalCategoryId String?
+
   updatedAt DateTime @updatedAt
-}
-
-// Стандартна схема NextAuth Prisma-adapter (лінкування Google-акаунту до User).
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-}
-
-// Не використовується напряму (session.strategy = "jwt" в src/lib/auth.ts),
-// але потрібна для типів @next-auth/prisma-adapter.
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expires      DateTime
-
-  @@index([userId])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// Дані доставки з останніх оформлених замовлень — автозаповнюються при
-// чекауті (upsert в POST /api/orders), редагуються в /account/profile.
-model SavedAddress {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  recipientName String
-  phone         String
-  city          String
-  warehouse     String
-  cityRef       String? // Nova Poshta Ref — для автозаповнення чекауту без повторного пошуку
-  warehouseRef  String?
-  isDefault     Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------

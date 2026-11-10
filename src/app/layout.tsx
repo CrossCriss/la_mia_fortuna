@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Cormorant_Garamond } from "next/font/google";
 import { cn } from "@/lib/utils";
-import { SessionProvider } from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -38,9 +37,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uk" className={cn(manrope.variable, cormorant.variable)}>
-      <body>
-        <SessionProvider>{children}</SessionProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
