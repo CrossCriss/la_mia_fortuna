@@ -15,10 +15,9 @@ git init
 
 - [ ] Створити новий проект Supabase (Database + Storage + Auth не потрібен, тільки Postgres+Storage)
 - [ ] Скопіювати `.env.example` → `.env`, заповнити `DATABASE_URL`/`DIRECT_URL` (Supabase → Project Settings → Database)
-- [ ] Згенерувати `ADMIN_SESSION_SECRET` і `NEXTAUTH_SECRET`: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- [ ] Згенерувати `ADMIN_SESSION_SECRET`: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 - [ ] Вирішити `ADMIN_EMAIL`/`ADMIN_PASSWORD` (тимчасові, клієнт змінить пізніше через повторний seed)
 - [ ] Supabase Storage: створити публічний bucket для фото товарів, вписати `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`
-- [ ] Якщо потрібен кабінет клієнта з Google-входом: створити OAuth client у Google Cloud Console (redirect URI `<NEXTAUTH_URL>/api/auth/callback/google`), інакше можна лишити `GOOGLE_CLIENT_ID`/`SECRET` пустими і прибрати кнопку "Увійти через Google" з форми логіну
 - [ ] `npm install`
 - [ ] `npm run prisma:migrate` (створить таблиці за `prisma/schema.prisma`)
 - [ ] `npm run prisma:seed`
@@ -46,8 +45,7 @@ git init
 
 ## 5. Рішення, які варто підтвердити з клієнтом одразу (щоб не переробляти потім)
 
-- [ ] Обов'язкова реєстрація на чекауті чи ні (шаблон — без обов'язкової реєстрації, гостьовий чекаут завжди можливий)
-- [ ] Чи потрібен кабінет клієнта з накопичувальною знижкою (`src/lib/loyalty.ts` — рівні знижки задаються масивом `DISCOUNT_TIERS`, легко змінити пороги/відсотки)
+- [x] Особистий кабінет клієнта — вирішено: не потрібен, чекаут лише гостьовий (NextAuth, `User`/`Account`/`Session`/`SavedAddress` і накопичувальна знижка прибрані з проекту)
 - [x] Способи оплати на чекауті — вирішено: оплата карткою онлайн (Monobank Acquiring, дешевший еквайринг; LiqPay лишається альтернативою через `PAYMENT_PROVIDER`) + накладений платіж
 - [x] Спосіб доставки — вирішено: Nova Poshta, відділення обирається автокомплітом (реальний API, не текстове поле)
 - [ ] Промокоди — потрібні з першого дня чи можна відкласти

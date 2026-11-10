@@ -1,6 +1,6 @@
 # E-commerce Starter Template
 
-Каркас інтернет-магазину (спочатку витягнутий з проекту "Gola Pravda"). Каталог з категоріями/розмірами/кольорами і залишками по варіантах, кошик, чекаут без обов'язкової реєстрації, адмінка для керування товарами/категоріями/замовленнями, кабінет клієнта з накопичувальною знижкою. UI — українською (легко перекласти, текст не зашитий у логіку).
+Каркас інтернет-магазину (спочатку витягнутий з проекту "Gola Pravda"). Каталог з категоріями/розмірами/кольорами і залишками по варіантах, кошик, чекаут без реєстрації (особистого кабінету клієнта в цьому проекті немає), адмінка для керування товарами/категоріями/замовленнями. UI — українською (легко перекласти, текст не зашитий у логіку).
 
 **Це шаблон для нових клієнтських проектів.** Перед стартом нового магазину пройдіться по `SETUP-CHECKLIST.md` — там весь список того, що треба перейменувати/налаштувати під конкретного клієнта.
 
@@ -12,7 +12,6 @@
 - Zustand (кошик, client-side, persist у localStorage)
 - Zod (валідація форм і API)
 - Supabase Storage (фото товарів в адмінці)
-- NextAuth (кабінет клієнта: Credentials за телефоном/email + Google OAuth)
 
 ## Команди
 
@@ -26,20 +25,18 @@ npm run prisma:seed       # засіяти БД (категорії, розмі�
 npm run prisma:studio     # Prisma Studio
 ```
 
-`.env` (скопіювати з `.env.example`) містить `DATABASE_URL`/`DIRECT_URL` (Supabase pooler/direct), `ADMIN_SESSION_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (застосовуються тільки через `prisma:seed`), `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (фото), `NEXTAUTH_URL`/`NEXTAUTH_SECRET` і `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (кабінет клієнта, Google OAuth).
+`.env` (скопіювати з `.env.example`) містить `DATABASE_URL`/`DIRECT_URL` (Supabase pooler/direct), `ADMIN_SESSION_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (застосовуються тільки через `prisma:seed`), `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (фото).
 
 **Важливо:** зміна `ADMIN_EMAIL`/`ADMIN_PASSWORD` у `.env` не діє сама по собі — потрібно повторно виконати `npm run prisma:seed`, щоб оновити хеш пароля в БД.
 
 ## Карта ключових папок
 
-- `prisma/schema.prisma` — уся схема БД (Category, Product, ProductVariant, Size, Color, Order, AdminUser, User/Account/Session/SavedAddress тощо)
+- `prisma/schema.prisma` — уся схема БД (Category, Product, ProductVariant, Size, Color, Order, AdminUser тощо; особистого кабінету клієнта немає)
 - `prisma/seed.ts` — сідування (ідемпотентне, очищує й пересоздає довідники/демо-товари) — **тут демо-категорії/товари, які треба замінити реальними даними клієнта**
 - `src/app/(public)/` — публічний сайт: `catalog/`, `catalog/[categorySlug]/`, `product/[productSlug]/`, `search/` (пошук за назвою товару + категорією), `cart/`, `checkout/`, `thank-you/`, статичні сторінки (about/delivery/returns/contacts/privacy)
 - `src/app/(admin)/admin/` — адмінка (products/categories/orders/promocodes), захищена `src/middleware.ts`
 - `src/app/(admin-auth)/admin/login/` — сторінка логіну, окрема route group, щоб не успадковувати layout адмінки
-- `src/app/(account)/account/` — кабінет клієнта (`/account`, `discounts/`, `orders/`, `orders/[id]/`, `profile/`), захищений `src/middleware.ts` через NextAuth JWT
-- `src/app/(account-auth)/account/login/` — форма входу/реєстрації, окрема route group (як admin-login)
-- `src/app/api/` — route handlers (публічні `products`/`categories`/`orders`, адмінські `api/admin/*`, `api/admin/upload` для фото, кабінет `api/account/*`, NextAuth `api/auth/[...nextauth]`)
+- `src/app/api/` — route handlers (публічні `products`/`categories`/`orders`, адмінські `api/admin/*`, `api/admin/upload` для фото)
 - `src/components/catalog/` — `ProductCard`, `ProductGrid`, `CategoryGrid`, `CatalogFilters`
 - `src/components/home/` — `Hero`, `FeaturedCategorySection` (секції-підбірки на головній за `Category.isFeaturedOnHome`), `UspBanner`, `FaqSection`
 - `src/lib/home-badges.ts` — бейджі на картці товару лише для головної (Топ продажів/Новинка/Останні одиниці), окремо від `isNew`/`isPromo` каталогу
@@ -47,14 +44,10 @@ npm run prisma:studio     # Prisma Studio
 - `src/components/cart/` — `CartDrawer`, `CartTriggerButton`
 - `src/components/checkout/` — компоненти форми оформлення замовлення
 - `src/components/admin/` — `ProductForm`, `CategoryForm`, `OrderStatusControl`, `DeleteButton`, `AdminLogoutButton`
-- `src/components/account/` — `AccountNav`, `ProfileForm`, `PasswordForm`, `SavedAddressList`
 - `src/lib/cart-store.ts` — Zustand-стор кошика (persist тільки `items`, `isOpen` — ні)
 - `src/lib/format-price.ts` — єдина функція форматування ціни (без `Intl`, щоб уникнути hydration mismatch між сервером і клієнтом)
-- `src/lib/admin-session.ts` — сесії адмінки (HMAC-cookie, Edge-safe); `src/lib/password.ts` — хешування пароля (Node-only, scrypt), спільне для адмінки й кабінету клієнта
+- `src/lib/admin-session.ts` — сесії адмінки (HMAC-cookie, Edge-safe); `src/lib/password.ts` — хешування пароля (Node-only, scrypt)
 - `src/lib/catalog.ts` — побудова Prisma-фільтрів для категорій (включно з підкатегоріями, "Новинки"/"Акції" по флагах товару)
-- `src/lib/auth.ts` — конфіг NextAuth (Credentials за телефоном/email + Google, JWT-сесії, PrismaAdapter)
-- `src/lib/loyalty.ts` — рівні накопичувальної знижки, рахуються "наживо" з `Order` (без кешованого поля) за `getLoyaltySummary(userId)`
-- `src/lib/phone.ts` / `identifier.ts` — маска й нормалізація українського номера, розбір поля "телефон або email"
 
 ## Патерни, які варто зберегти при кастомізації
 
