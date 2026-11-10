@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format-price";
 import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/checkout-schema";
 import { formatVariantLabel } from "@/lib/color-print";
-import type { LoyaltySummary } from "@/lib/loyalty";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
 import type { PaymentInit } from "@/lib/payment/types";
 
@@ -30,22 +28,6 @@ function submitPaymentForm(url: string, fields: Record<string, string>) {
   form.submit();
 }
 
-type SavedAddress = {
-  recipientName: string;
-  phone: string;
-  city: string;
-  warehouse: string;
-  cityRef?: string | null;
-  warehouseRef?: string | null;
-  isDefault: boolean;
-};
-
-type AccountProfile = {
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-};
-
 const initialForm: CheckoutFormValues = {
   customerName: "",
   phone: "",
@@ -65,7 +47,6 @@ type FieldErrors = Partial<Record<keyof CheckoutFormValues, string>>;
 // карткою — реальний рахунок у активного провайдера (src/lib/payment).
 export default function CheckoutPage() {
   const router = useRouter();
-  const { status } = useSession();
   const items = useCartStore((state) => state.items);
   const clear = useCartStore((state) => state.clear);
 
@@ -73,62 +54,11 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [loyalty, setLoyalty] = useState<LoyaltySummary | null>(null);
 
   const total = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]
   );
-
-  const discountPercent = loyalty?.tier.percent ?? 0;
-  const discountAmount = Math.round(total * (discountPercent / 100));
-  const totalWithDiscount = total - discountAmount;
-
-  // Для залогінених клієнтів: підвантажуємо їхню знижку й автозаповнюємо форму
-  // з ДВОХ незалежних джерел — вони навмисно не змішуються, бо стосуються
-  // різних речей і можуть відрізнятись (напр. замовлення в подарунок на іншу
-  // адресу не повинно міняти ім'я/телефон в акаунті, і навпаки):
-  //  - ім'я/телефон/email — з профілю User (src/app/api/account/profile GET);
-  //  - місто/відділення — з останньої збереженої адреси SavedAddress
-  //    (src/app/api/orders/route.ts зберігає її автоматично при оформленні;
-  //    якщо це перше замовлення користувача, адреси ще немає — поля лишаються
-  //    порожніми, це очікувано, а не баг).
-  // Усі поля лишаються звичайними controlled-інпутами — автозаповнення лише
-  // підставляє значення один раз при завантаженні, далі користувач редагує
-  // їх як завгодно. Кінцева сума на сервері рахується наново.
-  useEffect(() => {
-    if (status !== "authenticated") return;
-
-    fetch("/api/account/loyalty")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: LoyaltySummary | null) => setLoyalty(data));
-
-    fetch("/api/account/profile")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((profile: AccountProfile | null) => {
-        if (!profile) return;
-        setForm((prev) => ({
-          ...prev,
-          customerName: prev.customerName || profile.name || "",
-          phone: prev.phone || profile.phone || "",
-          email: prev.email || profile.email || "",
-        }));
-      });
-
-    fetch("/api/account/addresses")
-      .then((response) => (response.ok ? response.json() : []))
-      .then((addresses: SavedAddress[]) => {
-        const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
-        if (!defaultAddress) return;
-        setForm((prev) => ({
-          ...prev,
-          shippingCity: prev.shippingCity || defaultAddress.city,
-          shippingCityRef: prev.shippingCityRef || defaultAddress.cityRef || "",
-          shippingWarehouse: prev.shippingWarehouse || defaultAddress.warehouse,
-          shippingWarehouseRef: prev.shippingWarehouseRef || defaultAddress.warehouseRef || "",
-        }));
-      });
-  }, [status]);
 
   function updateField<K extends keyof CheckoutFormValues>(key: K, value: CheckoutFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -268,6 +198,12 @@ export default function CheckoutPage() {
                 onSelect={() => updateField("paymentMethod", "CASH_ON_DELIVERY")}
               />
             </div>
+            {form.paymentMethod === "CASH_ON_DELIVERY" && (
+              <p className="mt-2 text-xs text-neutral-500">
+                За накладений платіж Нова Пошта стягує додаткову комісію за переказ коштів —
+                вона оплачується окремо при отриманні. Оплата карткою онлайн без цієї комісії.
+              </p>
+            )}
           </div>
 
           <Field label="Коментар до замовлення (необов'язково)">
@@ -309,19 +245,9 @@ export default function CheckoutPage() {
             })}
           </ul>
           <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm">
-            <div className="flex items-center justify-between text-neutral-600">
-              <span>Проміжна сума</span>
-              <span>{formatPrice(total)}</span>
-            </div>
-            {discountPercent > 0 && (
-              <div className="flex items-center justify-between text-accent">
-                <span>Ваша знижка {discountPercent}%</span>
-                <span>−{formatPrice(discountAmount)}</span>
-              </div>
-            )}
             <div className="flex items-center justify-between text-base font-semibold text-neutral-900">
               <span>Разом</span>
-              <span>{formatPrice(totalWithDiscount)}</span>
+              <span>{formatPrice(total)}</span>
             </div>
           </div>
         </aside>

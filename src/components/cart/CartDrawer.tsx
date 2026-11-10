@@ -66,16 +66,28 @@ export function CartDrawer() {
                         {formatVariantLabel(item.size, item.color)}
                       </p>
                     )}
-                    <div className="mt-1 flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.quantity}
-                        onChange={(event) =>
-                          setQuantity(item.variantId, Math.max(1, Number(event.target.value) || 1))
-                        }
-                        className="w-14 rounded-lg border border-border px-1 py-0.5 text-sm"
-                      />
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex items-center rounded-full border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(item.variantId, Math.max(1, item.quantity - 1))}
+                          aria-label="Зменшити кількість"
+                          className="flex h-7 w-7 items-center justify-center text-ink/60 transition hover:text-ink"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium text-ink">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(item.variantId, item.quantity + 1)}
+                          aria-label="Збільшити кількість"
+                          className="flex h-7 w-7 items-center justify-center text-ink/60 transition hover:text-ink"
+                        >
+                          +
+                        </button>
+                      </div>
                       <span className="text-sm font-bold text-ink">
                         {formatPrice(item.price * item.quantity)}
                       </span>
