@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Hero } from "@/components/home/Hero";
+import { ContactFloatingBar } from "@/components/home/ContactFloatingBar";
 import { FeaturedCategorySection } from "@/components/home/FeaturedCategorySection";
 import { BenefitsSection } from "@/components/home/BenefitsSection";
 import { SizeHelpBanner } from "@/components/home/SizeHelpBanner";
@@ -8,6 +9,7 @@ import { InstagramTeaser } from "@/components/home/InstagramTeaser";
 import { HowToOrderSteps } from "@/components/home/HowToOrderSteps";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { getHomeBadges } from "@/lib/home-badges";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +95,10 @@ async function getTopCategories() {
   });
 }
 
+async function getPromoCategory() {
+  return prisma.category.findUnique({ where: { slug: "aktsii" } });
+}
+
 async function getReviews() {
   return prisma.review.findMany({
     where: { isPublished: true },
@@ -102,31 +108,66 @@ async function getReviews() {
 }
 
 export default async function HomePage() {
-  const [topCategories, featuredSections, reviews] = await Promise.all([
+  const [topCategories, featuredSections, reviews, settings, promoCategory] = await Promise.all([
     getTopCategories(),
     getFeaturedCategorySections(),
     getReviews(),
+    getSiteSettings(),
+    getPromoCategory(),
   ]);
 
-  // Головна показує 3 типи взуття + плитку "Розпродаж" (не 4-й підтип) —
-  // той самий підбір, що і в макеті Main.dc.html, не весь список підкатегорій.
-  const shoeTypes = topCategories[0]?.children ?? [];
+  // Головна показує 3 сезонні розділи (Зимове/Демісезонне/Літнє взуття) +
+  // плитку "Розпродаж" — topCategories вже саме ці 3 сезони (верхній
+  // рівень каталогу), тому беремо їх прямо, без занурення в children.
   const homeCategoryTiles = [
-    ...shoeTypes.slice(0, 3).map((c) => ({ id: c.id, name: c.name, href: `/catalog/${c.slug}` })),
-    { id: "aktsii", name: "Розпродаж", href: "/catalog/aktsii" },
+    ...topCategories
+      .slice(0, 3)
+      .map((c) => ({ id: c.id, name: c.name, href: `/catalog/${c.slug}`, imageUrl: c.imageUrl })),
+    {
+      id: "aktsii",
+      name: promoCategory?.name ?? "Розпродаж",
+      href: "/catalog/aktsii",
+      imageUrl: promoCategory?.imageUrl ?? null,
+    },
   ];
 
   return (
     <div>
-      <Hero />
+      <ContactFloatingBar />
+      <Hero
+        image={settings.heroImageUrl}
+        imageAlt={settings.heroImageAlt ?? undefined}
+        seasonalLabel={settings.seasonalLabel}
+        collectionHref={
+          settings.seasonalCategorySlug ? `/catalog/${settings.seasonalCategorySlug}` : null
+        }
+      />
 
       <div className="mx-auto max-w-6xl px-4 md:px-10">
+        {/* "Обирають цього сезону" — вище плиток категорій (запит клієнтки від 2026-11-07). */}
+        {featuredSections.map((section) => (
+          <FeaturedCategorySection
+            key={section.id}
+            name={section.name}
+            slug={section.slug}
+            products={section.products}
+          />
+        ))}
+
         {homeCategoryTiles.length > 0 && (
           <section className="py-12">
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {homeCategoryTiles.map((category) => (
                 <Link key={category.id} href={category.href} className="group flex flex-col gap-3">
-                  <div className="h-[220px] bg-secondary/25 transition-opacity group-hover:opacity-90 lg:h-[340px]" />
+                  <div className="h-[220px] overflow-hidden bg-secondary/25 transition-opacity group-hover:opacity-90 lg:h-[340px]">
+                    {category.imageUrl && (
+                      <img
+                        src={category.imageUrl}
+                        alt={category.name}
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    )}
+                  </div>
                   <div className="flex items-baseline justify-between">
                     <span className="font-display text-[26px] font-semibold text-ink">
                       {category.name}
@@ -138,15 +179,6 @@ export default async function HomePage() {
             </div>
           </section>
         )}
-
-        {featuredSections.map((section) => (
-          <FeaturedCategorySection
-            key={section.id}
-            name={section.name}
-            slug={section.slug}
-            products={section.products}
-          />
-        ))}
 
         <BenefitsSection />
       </div>

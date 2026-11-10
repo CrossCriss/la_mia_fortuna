@@ -4,22 +4,29 @@ import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 const STATS = [
   { value: "15 років", label: "досвіду в продажах" },
   { value: "40 000", label: "підписників в Instagram" },
-  { value: "35 до 41", label: "розмірний ряд" },
+  { value: "36 до 41", label: "розмірний ряд" },
 ];
 
 export function Hero({
   image,
   imageAlt = "Головне фото колекції",
+  seasonalLabel,
+  collectionHref,
 }: {
-  image?: string;
+  image?: string | null;
   imageAlt?: string;
+  // Підпис і посилання на сезонну колекцію — керується в адмінці
+  // (/admin/homepage), collectionHref відсутній, якщо категорію ще не
+  // обрали: тоді картка-посилання на фото просто не показується.
+  seasonalLabel?: string;
+  collectionHref?: string | null;
 }) {
   return (
     <section>
       <div className="mx-auto max-w-6xl gap-12 px-4 py-6 md:flex md:items-center md:gap-12 md:px-10 md:py-12">
         <div className="flex-1">
           <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-accent">
-            Нова колекція · Зима 2027
+            {seasonalLabel ? `Нова колекція · ${seasonalLabel}` : "Нова колекція"}
           </span>
           <h1 className="mt-5 font-display text-[44px] font-semibold leading-[1.02] text-ink md:text-[64px] lg:text-[76px]">
             Взуття з натуральної шкіри, зроблене з любов&apos;ю
@@ -64,14 +71,19 @@ export function Hero({
               <PlaceholderImage className="text-background/70" />
             )}
           </div>
-          <div className="absolute bottom-6 left-6 flex max-w-[260px] flex-col gap-0.5 bg-background px-5 py-4">
-            <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-accent">
-              Зима 2027
-            </span>
-            <span className="font-display text-xl font-semibold text-ink">Черевики з хутром</span>
-            <span className="text-sm text-ink-soft">Чорний, шоколадний · 36 до 41</span>
-            <span className="mt-1 text-base font-bold text-ink">2 900 грн</span>
-          </div>
+          {collectionHref && (
+            <Link
+              href={collectionHref}
+              className="absolute bottom-6 left-6 flex max-w-[260px] flex-col gap-1 bg-background px-5 py-4 transition hover:bg-surface"
+            >
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-accent">
+                {seasonalLabel}
+              </span>
+              <span className="font-display text-xl font-semibold text-ink">
+                Переглянути колекцію
+              </span>
+            </Link>
+          )}
         </div>
       </div>
     </section>
