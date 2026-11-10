@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { productFormSchema, type ProductFormValues } from "@/lib/admin/product-schema";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export function ProductForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   function updateField<K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -88,10 +90,9 @@ export function ProductForm({
     updateField("images", next);
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    if (files.length === 0) return;
+  async function uploadFiles(files: File[]) {
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
 
     setUploadError(null);
     const availableSlots = MAX_IMAGES - form.images.length;
@@ -102,7 +103,7 @@ export function ProductForm({
 
     setIsUploading(true);
     try {
-      for (const file of files.slice(0, availableSlots)) {
+      for (const file of imageFiles.slice(0, availableSlots)) {
         const body = new FormData();
         body.append("file", file);
         const response = await fetch("/api/admin/upload", { method: "POST", body });
@@ -115,6 +116,30 @@ export function ProductForm({
     } finally {
       setIsUploading(false);
     }
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    uploadFiles(files);
+  }
+
+  // Перетягування фото прямо з Telegram/Finder тощо — без обов'язкового
+  // відкриття системного діалогу вибору файлу.
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    setIsDraggingOver(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent) {
+    if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+    setIsDraggingOver(false);
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setIsDraggingOver(false);
+    uploadFiles(Array.from(event.dataTransfer.files ?? []));
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -202,8 +227,11 @@ export function ProductForm({
           <input
             type="number"
             step="0.01"
-            value={form.price}
-            onChange={(e) => updateField("price", Number(e.target.value))}
+            // Порожнє поле показуємо як порожнє (а не "0"), інакше контрольований
+            // інпут миттєво повертає нуль після видалення останньої цифри і
+            // стирання значення стає неможливим.
+            value={form.price === 0 ? "" : form.price}
+            onChange={(e) => updateField("price", e.target.value === "" ? 0 : Number(e.target.value))}
             className={inputClass(errors.price)}
           />
         </Field>
@@ -288,7 +316,17 @@ export function ProductForm({
       <section>
         <h2 className="mb-3 text-sm font-semibold text-neutral-900">Фото (до {MAX_IMAGES})</h2>
         {errors.images && <p className="mb-2 text-xs text-red-600">{errors.images}</p>}
-        <div className="flex flex-wrap gap-3">
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "flex flex-wrap gap-3 rounded-lg border-2 border-dashed p-3 transition",
+            isDraggingOver
+              ? "border-neutral-900 bg-neutral-100"
+              : "border-transparent"
+          )}
+        >
           {form.images.map((image, index) => (
             <div key={image.id ?? image.url} className="relative h-24 w-24 overflow-hidden rounded-lg border border-neutral-200">
               <img src={image.url} alt={image.alt ?? ""} className="h-full w-full object-cover" />
@@ -324,9 +362,16 @@ export function ProductForm({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex h-24 w-24 flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 text-xs text-neutral-500 hover:border-neutral-400 disabled:opacity-50"
+              className="flex h-24 w-24 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-neutral-300 px-1 text-center text-xs text-neutral-500 hover:border-neutral-400 disabled:opacity-50"
             >
-              {isUploading ? "Завантаження…" : "+ Додати фото"}
+              {isUploading ? (
+                "Завантаження…"
+              ) : (
+                <>
+                  <span>+ Додати фото</span>
+                  <span className="text-[10px] text-neutral-400">або перетягніть сюди</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -344,18 +389,29 @@ export function ProductForm({
       <section>
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-900">Кольори й залишки за розмірами</h2>
-          <button
-            type="button"
-            onClick={addColorBlock}
-            disabled={colorBlocks.length >= colors.length}
-            className="text-sm text-neutral-700 hover:underline disabled:opacity-40"
-          >
-            + Додати колір
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/colors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-neutral-500 hover:underline"
+              title="Відкриється в новій вкладці, щоб не втратити заповнену форму товару"
+            >
+              Немає потрібного кольору? ↗
+            </Link>
+            <button
+              type="button"
+              onClick={addColorBlock}
+              disabled={colorBlocks.length >= colors.length}
+              className="text-sm text-neutral-700 hover:underline disabled:opacity-40"
+            >
+              + Додати колір
+            </button>
+          </div>
         </div>
         <p className="mb-3 text-xs text-neutral-500">
-          Для кожного кольору вкажіть, скільки пар є в наявності за кожним розміром. 0 означає
-          «немає в наявності» — такий розмір на сайті буде показано закресленим.
+          Для кожного кольору познач, які розміри зараз є в наявності. Точного обліку кількості
+          пар немає — лише «є» чи «немає»; розмір без галочки на сайті буде показано закресленим.
         </p>
         {errors.variants && <p className="mb-2 text-xs text-red-600">{errors.variants}</p>}
 
@@ -401,28 +457,32 @@ export function ProductForm({
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {sizes.map((size) => (
-                    <label
-                      key={size.id}
-                      className="flex flex-col items-center gap-1 text-xs text-neutral-500"
-                    >
-                      <span className="font-semibold text-neutral-700">{size.value}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={block.stockBySizeId[size.id] ?? 0}
-                        onChange={(e) =>
+                  {sizes.map((size) => {
+                    const isAvailable = (block.stockBySizeId[size.id] ?? 0) > 0;
+                    return (
+                      <button
+                        key={size.id}
+                        type="button"
+                        aria-pressed={isAvailable}
+                        onClick={() =>
                           updateColorBlock(index, {
                             stockBySizeId: {
                               ...block.stockBySizeId,
-                              [size.id]: Math.max(0, Number(e.target.value)),
+                              [size.id]: isAvailable ? 0 : 1,
                             },
                           })
                         }
-                        className="h-9 w-14 rounded-lg border border-neutral-300 text-center text-sm focus:border-neutral-500 focus:outline-none"
-                      />
-                    </label>
-                  ))}
+                        className={cn(
+                          "flex h-10 w-14 items-center justify-center rounded-lg border text-sm font-semibold transition",
+                          isAvailable
+                            ? "border-neutral-900 bg-neutral-900 text-white"
+                            : "border-neutral-300 text-neutral-400 hover:border-neutral-400"
+                        )}
+                      >
+                        {size.value}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
