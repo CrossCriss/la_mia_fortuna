@@ -1,32 +1,35 @@
 import Link from "next/link";
 
-const FOOTER_COLUMNS = [
-  {
-    title: "Магазин",
-    links: [
-      { href: "/catalog/novynky", label: "Новинки" },
-      { href: "/catalog/zhinoche-vzuttya?collection=zima-2027", label: "Зима 2027" },
-      { href: "/catalog/aktsii", label: "Розпродаж" },
-    ],
-  },
-  {
-    title: "Покупцям",
-    links: [
-      { href: "/delivery", label: "Умови замовлення" },
-      { href: "/returns", label: "Повернення/обмін" },
-      { href: "/about", label: "Вибір розміру" },
-    ],
-  },
-  {
-    title: "Контакти",
-    links: [
-      { href: "tel:+380667901044", label: "Viber, Telegram: 066 790 10 44" },
-      { href: "https://www.instagram.com/la_mia_fortuna_shoes", label: "Instagram: @la_mia_fortuna_shoes" },
-    ],
-  },
-];
+export async function Footer() {
+  // "Магазин" — Новинки/Розпродаж за флагами товару; сезонні розділи
+  // (Зимове/Демісезонне/Літнє взуття) тепер самі верхній рівень каталогу і
+  // вже є в хедері, тож тут їх не дублюємо.
+  const footerColumns = [
+    {
+      title: "Магазин",
+      links: [
+        { href: "/catalog/novynky", label: "Новинки" },
+        { href: "/catalog/aktsii", label: "Розпродаж" },
+      ],
+    },
+    {
+      title: "Покупцям",
+      links: [
+        { href: "/delivery", label: "Умови замовлення" },
+        { href: "/returns", label: "Повернення/обмін" },
+        { href: "/size-guide", label: "Розмірна сітка" },
+        { href: "/about", label: "Про нас" },
+      ],
+    },
+    {
+      title: "Контакти",
+      links: [
+        { href: "tel:+380667901044", label: "Viber, Telegram: 066 790 10 44" },
+        { href: "https://www.instagram.com/la_mia_fortuna_shoes", label: "Instagram: @la_mia_fortuna_shoes" },
+      ],
+    },
+  ];
 
-export function Footer() {
   return (
     <footer className="bg-ink text-background/70">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -39,7 +42,7 @@ export function Footer() {
           </p>
         </div>
 
-        {FOOTER_COLUMNS.map((column) => (
+        {footerColumns.map((column) => (
           <div key={column.title}>
             <p className="mb-3 text-sm font-bold text-background">{column.title}</p>
             <nav className="flex flex-col gap-2">

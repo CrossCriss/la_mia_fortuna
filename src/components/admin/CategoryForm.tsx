@@ -84,16 +84,6 @@ export function CategoryForm({
         />
       </Field>
 
-      <Field label="Slug" error={errors.slug}>
-        <input
-          type="text"
-          value={form.slug}
-          onChange={(e) => updateField("slug", e.target.value)}
-          className={inputClass(errors.slug)}
-          placeholder="napryklad-taka-nazva"
-        />
-      </Field>
-
       <Field label="Батьківська категорія">
         <select
           value={form.parentId ?? ""}

@@ -12,6 +12,17 @@ async function getTopCategoriesWithPreview() {
 
   return Promise.all(
     categories.map(async (category) => {
+      // Обкладинка категорії (imageUrl) має пріоритет — якщо її немає,
+      // підставляємо фото першого товару категорії як запасний варіант.
+      if (category.imageUrl) {
+        return {
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          previewImage: category.imageUrl,
+        };
+      }
+
       const where = buildProductWhereForCategory(category);
       const product = await prisma.product.findFirst({
         where,
