@@ -1,25 +1,44 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createOrderSchema } from "@/lib/checkout-schema";
 import { getActivePaymentMethod, getPaymentProvider } from "@/lib/payment";
+import { buildOrderItems, generateOrderNumber } from "@/lib/orders/build-order";
 import type { PaymentInit } from "@/lib/payment/types";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/orders — створення замовлення при оформленні чекауту.
+// POST /api/orders - створення замовлення при оформленні чекауту.
 // "ONLINE_CARD" з форми резолвиться тут у реальний PaymentMethod (LIQPAY/
 // MONOBANK) за PAYMENT_PROVIDER, і для нього одразу створюється рахунок у
-// провайдера — клієнт отримає paymentInit і повинен перейти за ним
+// провайдера - клієнт отримає paymentInit і повинен перейти за ним
 // (redirect-url або auto-submit форма), інакше замовлення лишиться NEW/PENDING.
-// Клієнт надсилає лише variantId+quantity — ціна, назва, sku, розмір і колір
+// Клієнт надсилає лише variantId+quantity - ціна, назва, sku, розмір і колір
 // підтягуються з БД тут, а не приймаються від клієнта як є.
+const INVALID_ORDER_ERROR = "Некоректні дані замовлення";
+const MAX_ORDER_NUMBER_ATTEMPTS = 3;
+
+function isOrderNumberConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+    return false;
+  }
+  const target = error.meta?.target;
+  return Array.isArray(target) ? target.includes("orderNumber") : String(target ?? "").includes("orderNumber");
+}
+
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: INVALID_ORDER_ERROR }, { status: 400 });
+  }
+
   const parsed = createOrderSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Некоректні дані замовлення", issues: parsed.error.flatten() },
+      { error: INVALID_ORDER_ERROR, issues: parsed.error.flatten() },
       { status: 400 }
     );
   }
@@ -27,60 +46,64 @@ export async function POST(request: Request) {
   const { items, email, comment, ...customer } = parsed.data;
 
   const variants = await prisma.productVariant.findMany({
-    where: { id: { in: items.map((item) => item.variantId) } },
+    where: { id: { in: [...new Set(items.map((item) => item.variantId))] } },
     include: { product: true, size: true, color: true },
   });
 
-  if (variants.length !== items.length) {
+  const built = buildOrderItems(items, variants);
+
+  if (!built.ok) {
     return NextResponse.json(
-      { error: "Один або декілька товарів у кошику більше не доступні" },
-      { status: 400 }
+      {
+        error: "Деякі товари з кошика вже недоступні. Оновіть кошик і спробуйте ще раз.",
+        unavailableVariantIds: built.unavailableVariantIds,
+      },
+      { status: 409 }
     );
   }
 
-  const variantById = new Map(variants.map((variant) => [variant.id, variant]));
-
-  const orderItems = items.map((item) => {
-    const variant = variantById.get(item.variantId)!;
-    const price = variant.product.discountPrice ?? variant.product.price;
-
-    return {
-      productId: variant.product.id,
-      variantId: variant.id,
-      productName: variant.product.name,
-      sku: variant.sku ?? variant.product.sku,
-      size: variant.size.value,
-      color: variant.color.name,
-      price,
-      quantity: item.quantity,
-      total: Number(price) * item.quantity,
-    };
-  });
-
-  const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
+  const { orderItems, subtotal } = built;
 
   const isOnlineCard = customer.paymentMethod === "ONLINE_CARD";
   const paymentMethod = isOnlineCard ? getActivePaymentMethod() : "CASH_ON_DELIVERY";
 
-  const order = await prisma.order.create({
-    data: {
-      orderNumber: `GP-${Date.now()}`,
-      status: "NEW",
-      paymentMethod,
-      customerName: customer.customerName,
-      phone: customer.phone,
-      email: email || undefined,
-      shippingCity: customer.shippingCity,
-      shippingCityRef: customer.shippingCityRef,
-      shippingWarehouse: customer.shippingWarehouse,
-      shippingWarehouseRef: customer.shippingWarehouseRef,
-      comment: comment || undefined,
-      subtotal,
-      total: subtotal,
-      items: { create: orderItems },
-    },
-    include: { items: true },
-  });
+  const createOrder = (orderNumber: string) =>
+    prisma.order.create({
+      data: {
+        orderNumber,
+        status: "NEW",
+        paymentMethod,
+        customerName: customer.customerName,
+        phone: customer.phone,
+        email: email || undefined,
+        shippingCity: customer.shippingCity,
+        shippingCityRef: customer.shippingCityRef,
+        shippingWarehouse: customer.shippingWarehouse,
+        shippingWarehouseRef: customer.shippingWarehouseRef,
+        comment: comment || undefined,
+        subtotal,
+        total: subtotal,
+        items: { create: orderItems },
+      },
+      include: { items: true },
+    });
+
+  // Номер випадковий: у разі колізії (P2002 по orderNumber) пробуємо з новим номером.
+  let order: Awaited<ReturnType<typeof createOrder>> | undefined;
+  for (let attempt = 1; attempt <= MAX_ORDER_NUMBER_ATTEMPTS; attempt += 1) {
+    try {
+      order = await createOrder(generateOrderNumber(new Date()));
+      break;
+    } catch (error) {
+      if (!isOrderNumberConflict(error) || attempt === MAX_ORDER_NUMBER_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+
+  if (!order) {
+    throw new Error("Не вдалося створити замовлення");
+  }
 
   if (!isOnlineCard) {
     return NextResponse.json(order, { status: 201 });
