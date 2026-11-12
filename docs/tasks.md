@@ -113,7 +113,7 @@
 
 ### F-04. Полный .env.example и скрипт проверки окружения
 
-- Статус: TODO
+- Статус: DONE
 - Цель: перед деплоем одной командой видно, каких переменных не хватает и где остались заглушки.
 - Файлы: `.env.example`, `scripts/check-env.mjs` (новый), `package.json`.
 - Входы и выходы:
@@ -131,7 +131,7 @@
 
 ### F-05. CI в GitHub Actions
 
-- Статус: TODO
+- Статус: DONE
 - Цель: на каждый push и pull request автоматически идут typecheck, lint и тесты.
 - Файлы: `.github/workflows/ci.yml` (новый).
 - Входы и выходы: один job на `ubuntu-latest`, Node 20, шаги: `actions/checkout@v4`, `actions/setup-node@v4` с кэшем npm, `npm ci`, `npm run typecheck`, `npm run lint`, `npm test`. Секреты и БД не нужны. Сборку (`npm run build`) в CI не добавлять.
