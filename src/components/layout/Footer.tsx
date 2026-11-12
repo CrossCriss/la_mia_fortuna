@@ -20,6 +20,8 @@ export async function Footer() {
         { href: "/returns", label: "Повернення/обмін" },
         { href: "/size-guide", label: "Розмірна сітка" },
         { href: "/about", label: "Про нас" },
+        { href: "/oferta", label: "Публічна оферта" },
+        { href: "/privacy", label: "Політика конфіденційності" },
       ],
     },
     {

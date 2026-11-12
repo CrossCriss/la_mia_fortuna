@@ -224,6 +224,16 @@ export default function CheckoutPage() {
           >
             {isSubmitting ? "Оформлюємо…" : "Підтвердити замовлення"}
           </button>
+          <p className="text-xs text-neutral-500">
+            Оформлюючи замовлення, ви погоджуєтесь з{" "}
+            <Link href="/oferta" target="_blank" rel="noopener noreferrer" className="underline">
+              публічною офертою
+            </Link>{" "}
+            та{" "}
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">
+              політикою конфіденційності
+            </Link>
+          </p>
         </form>
 
         <aside className="h-fit rounded-2xl border border-neutral-100 p-5">
