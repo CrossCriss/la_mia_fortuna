@@ -106,6 +106,16 @@ function mapMonobankStatus(status: string): PaymentWebhookResult["status"] {
   }
 }
 
+function toWebhookResult(payload: MonobankWebhookPayload): PaymentWebhookResult {
+  return {
+    orderNumber: payload.reference ?? "",
+    invoiceId: payload.invoiceId,
+    status: mapMonobankStatus(payload.status),
+    amount: typeof payload.amount === "number" ? payload.amount / 100 : null,
+    rawPayload: payload,
+  };
+}
+
 export async function parseMonobankWebhook(
   rawBody: Buffer,
   signatureBase64: string
@@ -117,11 +127,24 @@ export async function parseMonobankWebhook(
 
   const payload: MonobankWebhookPayload = JSON.parse(rawBody.toString("utf-8"));
 
-  return {
-    orderNumber: payload.reference ?? "",
-    invoiceId: payload.invoiceId,
-    status: mapMonobankStatus(payload.status),
-    amount: typeof payload.amount === "number" ? payload.amount / 100 : null,
-    rawPayload: payload,
-  };
+  return toWebhookResult(payload);
+}
+
+// Запит поточного статусу рахунку (для звірки, якщо вебхук не дійшов).
+// Не-2xx відповідь кидає помилку - її ловить викликач.
+export async function getMonobankInvoiceStatus(invoiceId: string): Promise<PaymentWebhookResult> {
+  const response = await fetch(
+    `${MONOBANK_API_URL}/invoice/status?invoiceId=${encodeURIComponent(invoiceId)}`,
+    {
+      headers: { "X-Token": getToken() },
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Monobank invoice/status HTTP ${response.status}`);
+  }
+
+  const payload: MonobankWebhookPayload = await response.json();
+  return toWebhookResult({ ...payload, invoiceId: payload.invoiceId ?? invoiceId });
 }
