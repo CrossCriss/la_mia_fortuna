@@ -7,7 +7,7 @@ const MONOBANK_API_URL = "https://api.monobank.ua/api/merchant";
 function getToken() {
   const token = process.env.MONOBANK_TOKEN;
   if (!token) {
-    throw new Error("MONOBANK_TOKEN не задано — особистий кабінет Monobank для бізнесу → Plata by mono → API");
+    throw new Error("MONOBANK_TOKEN не задано - особистий кабінет Monobank для бізнесу → Plata by mono → API");
   }
   return token;
 }
@@ -46,7 +46,7 @@ export const monobankProvider: PaymentProvider = {
 };
 
 // Публічний ключ кешується в пам'яті процесу (докум. радить не запитувати
-// його на кожен вебхук) і перезапитується, якщо перевірка підпису не пройшла —
+// його на кожен вебхук) і перезапитується, якщо перевірка підпису не пройшла -
 // Monobank інколи ротує ключ.
 let cachedPublicKeyBase64: string | null = null;
 
@@ -84,7 +84,22 @@ type MonobankWebhookPayload = {
   invoiceId: string;
   status: "created" | "processing" | "hold" | "success" | "failure" | "reversed" | "expired";
   reference?: string;
+  amount?: number; // копійки
 };
+
+function mapMonobankStatus(status: string): PaymentWebhookResult["status"] {
+  switch (status) {
+    case "success":
+      return "PAID";
+    case "failure":
+    case "expired":
+      return "FAILED";
+    case "reversed":
+      return "REFUNDED";
+    default:
+      return "PENDING";
+  }
+}
 
 export async function parseMonobankWebhook(
   rawBody: Buffer,
@@ -100,7 +115,8 @@ export async function parseMonobankWebhook(
   return {
     orderNumber: payload.reference ?? "",
     invoiceId: payload.invoiceId,
-    isPaid: payload.status === "success",
+    status: mapMonobankStatus(payload.status),
+    amount: typeof payload.amount === "number" ? payload.amount / 100 : null,
     rawPayload: payload,
   };
 }

@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { PaymentCreateResult, PaymentOrderInput, PaymentProvider, PaymentWebhookResult } from "./types";
 
-// LiqPay checkout API (https://www.liqpay.ua/documentation/api/aquiring/checkout) —
+// LiqPay checkout API (https://www.liqpay.ua/documentation/api/aquiring/checkout) -
 // підписаний data+signature пакет, auto-submit форма на liqpay.ua, редірект
 // назад на result_url, фактичний статус приходить окремо на server_url (callback).
 const LIQPAY_CHECKOUT_URL = "https://www.liqpay.ua/api/3/checkout";
@@ -47,8 +47,29 @@ export const liqpayProvider: PaymentProvider = {
   },
 };
 
-// Статуси, що означають "оплачено" — https://www.liqpay.ua/documentation/api/callback
-const PAID_STATUSES = new Set(["success", "sandbox", "subscribed"]);
+// Статуси callback - https://www.liqpay.ua/documentation/api/callback
+// sandbox вважається оплатою лише при LIQPAY_SANDBOX=1 (тестовий режим).
+function mapLiqpayStatus(status: unknown): PaymentWebhookResult["status"] {
+  switch (status) {
+    case "success":
+      return "PAID";
+    case "sandbox":
+      return process.env.LIQPAY_SANDBOX === "1" ? "PAID" : "PENDING";
+    case "failure":
+    case "error":
+      return "FAILED";
+    case "reversed":
+      return "REFUNDED";
+    default:
+      return "PENDING";
+  }
+}
+
+function parseAmount(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
 
 export function parseLiqpayCallback(data: string, signature: string): PaymentWebhookResult {
   const { privateKey } = getKeys();
@@ -63,7 +84,8 @@ export function parseLiqpayCallback(data: string, signature: string): PaymentWeb
   return {
     orderNumber: payload.order_id,
     invoiceId: payload.order_id,
-    isPaid: PAID_STATUSES.has(payload.status),
+    status: mapLiqpayStatus(payload.status),
+    amount: parseAmount(payload.amount),
     rawPayload: payload,
   };
 }
