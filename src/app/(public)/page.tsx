@@ -7,6 +7,8 @@ import { BenefitsSection } from "@/components/home/BenefitsSection";
 import { SizeHelpBanner } from "@/components/home/SizeHelpBanner";
 import { InstagramTeaser } from "@/components/home/InstagramTeaser";
 import { HowToOrderSteps } from "@/components/home/HowToOrderSteps";
+import { ReviewsSection } from "@/components/home/ReviewsSection";
+import { REVIEWS } from "@/content/reviews";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { getHomeBadges } from "@/lib/home-badges";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -99,19 +101,10 @@ async function getPromoCategory() {
   return prisma.category.findUnique({ where: { slug: "aktsii" } });
 }
 
-async function getReviews() {
-  return prisma.review.findMany({
-    where: { isPublished: true },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-  });
-}
-
 export default async function HomePage() {
-  const [topCategories, featuredSections, reviews, settings, promoCategory] = await Promise.all([
+  const [topCategories, featuredSections, settings, promoCategory] = await Promise.all([
     getTopCategories(),
     getFeaturedCategorySections(),
-    getReviews(),
     getSiteSettings(),
     getPromoCategory(),
   ]);
@@ -185,34 +178,7 @@ export default async function HomePage() {
 
       <SizeHelpBanner />
 
-      <section className="mx-auto max-w-6xl px-4 py-14 md:px-10">
-        <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-accent">
-            Відгуки
-          </span>
-          <h2 className="font-display text-[32px] font-semibold leading-[1.05] text-ink md:text-[42px]">
-            Живі відгуки клієнток
-          </h2>
-        </div>
-        {reviews.length === 0 ? (
-          <p className="mt-6 text-sm text-ink-soft">Відгуків поки немає.</p>
-        ) : (
-          <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            {reviews.map((review) => (
-              <div key={review.id} className="flex flex-col gap-3">
-                {/* Реальних скриншотів відгуків ще нема — беремо зі сторіс "Відгуки" пізніше. */}
-                <div className="flex h-[280px] flex-col items-center justify-center gap-2 bg-secondary/30 px-6 text-center text-ink-soft">
-                  <span className="text-[12px] uppercase tracking-[0.18em]">Скриншот відгуку</span>
-                  <span className="text-[13px]">Беремо зі сторіс «Відгуки»</span>
-                </div>
-                <span className="text-sm text-ink-soft">
-                  {review.authorName} — {review.text}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <ReviewsSection reviews={REVIEWS} />
 
       <InstagramTeaser />
 
