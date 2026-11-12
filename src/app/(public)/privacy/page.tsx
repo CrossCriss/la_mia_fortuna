@@ -1,4 +1,5 @@
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+import { SITE } from "@/lib/site-config";
 
 // ТИМЧАСОВИЙ ТЕКСТ (чернетка) для демонстрації клієнтці.
 // Обов'язкова для прийому платежів і реклами в Google/Meta (ТЗ §4) — перед
@@ -48,7 +49,7 @@ export default function PrivacyPage() {
           <h2 className="mb-2 font-semibold text-neutral-900">Ваші права</h2>
           <p>
             Ви можете запросити видалення своїх персональних даних, написавши нам у Telegram або
-            Viber: 066 790 10 44.
+            Viber: {SITE.phoneDisplay}.
           </p>
         </section>
       </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE } from "@/lib/site-config";
 
 export async function Footer() {
   // "Магазин" — Новинки/Розпродаж за флагами товару; сезонні розділи
@@ -24,8 +25,8 @@ export async function Footer() {
     {
       title: "Контакти",
       links: [
-        { href: "tel:+380667901044", label: "Viber, Telegram: 066 790 10 44" },
-        { href: "https://www.instagram.com/la_mia_fortuna_shoes", label: "Instagram: @la_mia_fortuna_shoes" },
+        { href: SITE.phoneHref, label: `Viber, Telegram: ${SITE.phoneDisplay}` },
+        { href: SITE.instagramUrl, label: `Instagram: ${SITE.instagramHandle}` },
       ],
     },
   ];
@@ -65,7 +66,7 @@ export async function Footer() {
         ))}
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs">
-        &copy; {new Date().getFullYear()} La Mia Fortuna Shoes. Офіційний ФОП
+        &copy; {new Date().getFullYear()} {SITE.name}. Офіційний ФОП
       </div>
     </footer>
   );

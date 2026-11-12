@@ -1,4 +1,5 @@
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+import { SITE } from "@/lib/site-config";
 
 // Email і графік роботи клієнтка ще не надала — позначено заглушкою,
 // телефон/Instagram — реальні дані з макета (Main.dc.html, футер).
@@ -10,11 +11,11 @@ export default function ContactsPage() {
       <dl className="space-y-3 text-sm text-ink-soft">
         <div>
           <dt className="font-medium text-ink">Viber, Telegram</dt>
-          <dd>066 790 10 44</dd>
+          <dd>{SITE.phoneDisplay}</dd>
         </div>
         <div>
           <dt className="font-medium text-ink">Instagram</dt>
-          <dd>@la_mia_fortuna_shoes</dd>
+          <dd>{SITE.instagramHandle}</dd>
         </div>
         <div>
           <dt className="font-medium text-ink">Виробництво</dt>

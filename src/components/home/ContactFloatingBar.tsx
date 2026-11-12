@@ -1,10 +1,12 @@
+import { SITE } from "@/lib/site-config";
+
 // Плаваючі кнопки зв'язку на головній — запит клієнтки від 2026-11-07:
 // телефон/Telegram/Instagram мають бути доступні в будь-який момент, не
-// тільки внизу в футері. Номер і Instagram — ті самі, що в Footer.tsx.
+// тільки внизу в футері. Номер і Instagram беруться з SITE (site-config.ts).
 const CONTACTS = [
   {
-    href: "tel:+380667901044",
-    label: "Подзвонити: 066 790 10 44",
+    href: SITE.phoneHref,
+    label: `Подзвонити: ${SITE.phoneDisplay}`,
     text: "Подзвонити",
     primary: true,
     icon: (
@@ -18,7 +20,7 @@ const CONTACTS = [
     ),
   },
   {
-    href: "https://t.me/+380667901044",
+    href: SITE.telegramUrl,
     label: "Написати в Telegram",
     text: "Telegram",
     primary: false,
@@ -29,7 +31,7 @@ const CONTACTS = [
     ),
   },
   {
-    href: "https://www.instagram.com/la_mia_fortuna_shoes",
+    href: SITE.instagramUrl,
     label: "Instagram",
     text: "Instagram",
     primary: false,
