@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/format-price";
 export type AdminProductRow = {
   id: string;
   name: string;
+  slug: string;
   sku: string;
   categoryName: string;
   price: number;
@@ -21,6 +22,20 @@ export type AdminProductRow = {
 
 export function AdminProductsTable({ products }: { products: AdminProductRow[] }) {
   const [query, setQuery] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copyLink(product: AdminProductRow) {
+    const url = `${window.location.origin}/product/${product.slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(product.id);
+      setTimeout(() => {
+        setCopiedId((current) => (current === product.id ? null : current));
+      }, 1500);
+    } catch {
+      // Буфер обміну недоступний: UI не ламаємо, просто нічого не міняємо
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,6 +103,15 @@ export function AdminProductsTable({ products }: { products: AdminProductRow[] }
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex justify-end gap-4">
+                    {product.isPublished && (
+                      <button
+                        type="button"
+                        onClick={() => copyLink(product)}
+                        className="text-sm text-neutral-600 hover:underline"
+                      >
+                        {copiedId === product.id ? "Скопійовано" : "Скопіювати посилання"}
+                      </button>
+                    )}
                     <Link
                       href={`/admin/products/${product.id}/edit`}
                       className="text-sm text-neutral-600 hover:underline"

@@ -13,6 +13,7 @@ export default async function AdminProductsPage() {
   const rows = products.map((product) => ({
     id: product.id,
     name: product.name,
+    slug: product.slug,
     sku: product.sku,
     categoryName: product.category.name,
     price: Number(product.price),
