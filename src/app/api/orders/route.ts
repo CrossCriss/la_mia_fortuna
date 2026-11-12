@@ -5,6 +5,8 @@ import { createOrderSchema } from "@/lib/checkout-schema";
 import { getActivePaymentMethod, getPaymentProvider } from "@/lib/payment";
 import { buildOrderItems, generateOrderNumber } from "@/lib/orders/build-order";
 import type { PaymentInit } from "@/lib/payment/types";
+import { getSiteUrl } from "@/lib/site-config";
+import { formatNewOrderMessage, sendTelegramMessage } from "@/lib/notify/telegram";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +107,13 @@ export async function POST(request: Request) {
     throw new Error("Не вдалося створити замовлення");
   }
 
+  // Сповіщення в Telegram-групу клієнтки. await обов'язковий: на serverless
+  // незавершений запит обривається після відповіді. sendTelegramMessage не кидає.
+  const notifyNewOrder = () =>
+    sendTelegramMessage(formatNewOrderMessage(order, `${getSiteUrl()}/admin/orders/${order.id}`));
+
   if (!isOnlineCard) {
+    await notifyNewOrder();
     return NextResponse.json(order, { status: 201 });
   }
 
@@ -127,5 +135,8 @@ export async function POST(request: Request) {
     );
   }
 
+  // Якщо рахунок створити не вдалося (502 вище), клієнт бачить помилку і
+  // замовлення лишається неоплаченим - сповіщення в такому випадку не шлемо.
+  await notifyNewOrder();
   return NextResponse.json({ ...order, paymentInit }, { status: 201 });
 }

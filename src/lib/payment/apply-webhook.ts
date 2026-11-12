@@ -2,6 +2,7 @@ import type { OrderStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolvePaymentUpdate } from "./resolve-payment-update";
 import type { PaymentWebhookResult } from "./types";
+import { formatPaidMessage, sendTelegramMessage } from "@/lib/notify/telegram";
 
 // Спільна логіка застосування результату вебхука (LiqPay callback /
 // Monobank webhook) до Order. Рішення про перехід статусу приймає чиста
@@ -44,6 +45,16 @@ export async function applyPaymentWebhook(
   });
 
   if (updated.count !== 1) return null;
+
+  // Сповіщення в Telegram-групу клієнтки про успішну оплату. sendTelegramMessage
+  // не кидає, але try/catch лишаємо: збій сповіщення не повинен ламати вебхук.
+  if (decision.becamePaid) {
+    try {
+      await sendTelegramMessage(formatPaidMessage(order.orderNumber, Number(order.total)));
+    } catch (error) {
+      console.error("Не вдалося надіслати сповіщення про оплату:", error instanceof Error ? error.message : error);
+    }
+  }
 
   return { orderId: order.id, becamePaid: decision.becamePaid };
 }
