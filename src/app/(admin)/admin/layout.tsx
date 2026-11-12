@@ -6,11 +6,9 @@ const ADMIN_NAV = [
   { href: "/admin", label: "Огляд" },
   { href: "/admin/homepage", label: "Головна сторінка" },
   { href: "/admin/products", label: "Товари" },
-  { href: "/admin/import", label: "Імпорт" },
   { href: "/admin/categories", label: "Категорії" },
   { href: "/admin/colors", label: "Кольори" },
   { href: "/admin/orders", label: "Замовлення" },
-  { href: "/admin/promocodes", label: "Промокоди" },
 ];
 
 // Доступ до /admin/* захищено middleware.ts (перевірка сесійної cookie).

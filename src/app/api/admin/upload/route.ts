@@ -6,6 +6,14 @@ export const dynamic = "force-dynamic";
 const BUCKET = "product-images";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ
 
+// Дозволені формати і відповідні розширення. Розширення беремо з MIME-типу,
+// а не з імені файлу (ім'я може бути будь-яким).
+const EXTENSION_BY_MIME = new Map<string, string>([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,14 +38,17 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Файл не знайдено" }, { status: 400 });
   }
-  if (!file.type.startsWith("image/")) {
-    return NextResponse.json({ error: "Можна завантажувати тільки зображення" }, { status: 400 });
+  const extension = EXTENSION_BY_MIME.get(file.type);
+  if (!extension) {
+    return NextResponse.json(
+      { error: "Підтримуються фото у форматі JPG, PNG або WebP" },
+      { status: 400 }
+    );
   }
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "Файл більший за 5 МБ" }, { status: 400 });
   }
 
-  const extension = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
   const path = `${crypto.randomUUID()}.${extension}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
