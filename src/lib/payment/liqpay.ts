@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import type { PaymentCreateResult, PaymentOrderInput, PaymentProvider, PaymentWebhookResult } from "./types";
 
 // LiqPay checkout API (https://www.liqpay.ua/documentation/api/aquiring/checkout) -
@@ -73,9 +73,11 @@ function parseAmount(value: unknown): number | null {
 
 export function parseLiqpayCallback(data: string, signature: string): PaymentWebhookResult {
   const { privateKey } = getKeys();
-  const expectedSignature = sign(privateKey, data);
+  const expected = Buffer.from(sign(privateKey, data));
+  const received = Buffer.from(signature);
 
-  if (expectedSignature !== signature) {
+  // timingSafeEqual кидає виняток при різній довжині буферів, тому спершу відмова
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
     throw new Error("Невірний підпис LiqPay callback");
   }
 

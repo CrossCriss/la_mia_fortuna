@@ -50,6 +50,11 @@ export const monobankProvider: PaymentProvider = {
 // Monobank інколи ротує ключ.
 let cachedPublicKeyBase64: string | null = null;
 
+// Лише для тестів: скидає кеш публічного ключа між кейсами.
+export function __resetMonobankKeyCacheForTests() {
+  cachedPublicKeyBase64 = null;
+}
+
 async function fetchPublicKey(): Promise<string> {
   const response = await fetch(`${MONOBANK_API_URL}/pubkey`, {
     headers: { "X-Token": getToken() },
