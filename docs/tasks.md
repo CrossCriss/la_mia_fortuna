@@ -164,7 +164,7 @@
 
 ### O-01. Чистая логика заказа с тестами
 
-- Статус: TODO
+- Статус: DONE
 - Цель: расчет позиций заказа и номер заказа вынесены из роута в тестируемые функции.
 - Файлы: `src/lib/orders/build-order.ts` (новый), `src/lib/orders/build-order.test.ts` (новый).
 - Входы и выходы:
@@ -182,7 +182,7 @@
 
 ### O-02. Подключить логику заказа к POST /api/orders
 
-- Статус: TODO
+- Статус: DONE
 - Цель: заказ нельзя создать на скрытый или отсутствующий товар, плохой запрос не роняет роут, номер заказа в новом формате.
 - Файлы: `src/app/api/orders/route.ts`, `src/lib/checkout-schema.ts`, `src/lib/checkout-schema.test.ts` (новый).
 - Входы и выходы:
@@ -201,7 +201,7 @@
 
 ### O-03. Правильные переходы статуса оплаты
 
-- Статус: TODO
+- Статус: DONE
 - Цель: промежуточные и запоздавшие вебхуки не портят статус, оплата засчитывается только при совпадении суммы и счета.
 - Файлы: `src/lib/payment/types.ts`, `src/lib/payment/resolve-payment-update.ts` (новый), `src/lib/payment/resolve-payment-update.test.ts` (новый), `src/lib/payment/apply-webhook.ts`, `src/lib/payment/monobank.ts`, `src/lib/payment/liqpay.ts`.
 - Входы и выходы:
@@ -226,7 +226,7 @@
 
 ### O-04. Тесты подписи вебхуков, сравнение подписи LiqPay
 
-- Статус: TODO
+- Статус: DONE
 - Цель: проверка подписи платежных вебхуков закреплена тестами.
 - Файлы: `src/lib/payment/liqpay.ts`, `src/lib/payment/monobank.ts`, `src/lib/payment/liqpay.test.ts` (новый), `src/lib/payment/monobank.test.ts` (новый).
 - Входы и выходы:
@@ -242,7 +242,7 @@
 
 ### O-05. Страница благодарности с реальным статусом и сверкой оплаты
 
-- Статус: TODO
+- Статус: DONE
 - Цель: покупатель видит состояние заказа, пропущенный вебхук Monobank догоняется при открытии страницы, есть данные для события покупки.
 - Файлы: `src/lib/payment/monobank.ts`, `src/lib/orders/public-order.ts` (новый), `src/app/(public)/thank-you/page.tsx`.
 - Входы и выходы:
@@ -259,7 +259,7 @@
 
 ### O-06. Уведомления о заказах в Telegram
 
-- Статус: TODO
+- Статус: DONE
 - Цель: клиентка получает сообщение о каждом новом заказе и об успешной оплате.
 - Файлы: `src/lib/notify/telegram.ts` (новый), `src/lib/notify/telegram.test.ts` (новый), `src/app/api/orders/route.ts`, `src/lib/payment/apply-webhook.ts`.
 - Входы и выходы:
@@ -276,7 +276,7 @@
 
 ### O-07. Ограничение частоты запросов
 
-- Статус: TODO
+- Статус: DONE
 - Цель: затруднить перебор пароля админки и спам заказами.
 - Файлы: `src/lib/rate-limit.ts` (новый), `src/lib/rate-limit.test.ts` (новый), `src/app/api/admin/login/route.ts`, `src/app/api/orders/route.ts`, `src/app/api/delivery/nova-poshta/cities/route.ts`, `src/app/api/delivery/nova-poshta/warehouses/route.ts`.
 - Входы и выходы:
@@ -294,7 +294,7 @@
 
 ### O-08. Флаг отключения оплаты картой
 
-- Статус: TODO
+- Статус: DONE
 - Цель: сайт можно запустить только с наложенным платежом, пока нет боевого токена Monobank.
 - Файлы: `src/lib/payment/index.ts`, `src/app/api/orders/route.ts`, `src/app/(public)/checkout/page.tsx`.
 - Входы и выходы:
@@ -329,7 +329,7 @@
 
 ### C-02. Публичная оферта, юридические ссылки, согласие на чекауте
 
-- Статус: TODO
+- Статус: DONE
 - Цель: на сайте есть каркас всех страниц, которые требуют закон об электронной коммерции, эквайринг и рекламный кабинет.
 - Файлы: `src/app/(public)/oferta/page.tsx` (новый), `src/components/layout/Footer.tsx`, `src/app/(public)/contacts/page.tsx`, `src/app/(public)/checkout/page.tsx`.
 - Входы и выходы:
