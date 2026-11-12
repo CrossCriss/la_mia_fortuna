@@ -7,6 +7,7 @@ import { buildOrderItems, generateOrderNumber } from "@/lib/orders/build-order";
 import type { PaymentInit } from "@/lib/payment/types";
 import { getSiteUrl } from "@/lib/site-config";
 import { formatNewOrderMessage, sendTelegramMessage } from "@/lib/notify/telegram";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
 // підтягуються з БД тут, а не приймаються від клієнта як є.
 const INVALID_ORDER_ERROR = "Некоректні дані замовлення";
 const MAX_ORDER_NUMBER_ATTEMPTS = 3;
+const ORDER_LIMIT = 10;
+const ORDER_WINDOW_MS = 10 * 60 * 1000; // 10 хвилин
 
 function isOrderNumberConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
@@ -29,6 +32,14 @@ function isOrderNumberConflict(error: unknown): boolean {
 }
 
 export async function POST(request: Request) {
+  const limit = rateLimit(`order:${getClientIp(request)}`, ORDER_LIMIT, ORDER_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Забагато запитів. Спробуйте трохи пізніше." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

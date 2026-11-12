@@ -2,10 +2,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-session";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 днів
 
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 хвилин
+
 export async function POST(request: Request) {
+  // Рахуємо кожен запит (і невдалі, і успішні), до розбору тіла й БД.
+  const limit = rateLimit(`login:${getClientIp(request)}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Забагато спроб. Спробуйте через 15 хвилин." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";
