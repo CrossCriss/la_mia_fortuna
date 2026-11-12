@@ -65,7 +65,7 @@
 
 ### F-01. Скрипты package.json и тестовый раннер Vitest
 
-- Статус: TODO
+- Статус: DONE
 - Цель: сборка на Vercel получает Prisma-клиент, есть безопасная команда миграций для прода и команда `npm test`.
 - Файлы: `package.json`, `package-lock.json`, `vitest.config.ts` (новый), `src/lib/format-price.test.ts` (новый).
 - Входы и выходы:
@@ -82,7 +82,7 @@
 
 ### F-02. Единый конфиг сайта (контакты, бренд, реквизиты)
 
-- Статус: TODO
+- Статус: DONE
 - Цель: телефон, ссылки на соцсети, название бренда и реквизиты продавца лежат в одном файле, а не в пяти.
 - Файлы: `src/lib/site-config.ts` (новый), `src/components/layout/Footer.tsx`, `src/components/home/ContactFloatingBar.tsx`, `src/components/home/InstagramTeaser.tsx`, `src/app/(public)/contacts/page.tsx`, `src/app/(public)/privacy/page.tsx`.
 - Входы и выходы:
@@ -97,7 +97,7 @@
 
 ### F-03. next.config: заголовки безопасности, хосты картинок, регион Vercel
 
-- Статус: TODO
+- Статус: DONE
 - Цель: базовые заголовки безопасности, оптимизатор картинок не работает как открытый прокси, функции Vercel рядом с БД.
 - Файлы: `next.config.mjs`, `vercel.json` (новый).
 - Входы и выходы:
@@ -143,7 +143,7 @@
 
 ### F-06. Мелкое укрепление админки
 
-- Статус: TODO
+- Статус: DONE
 - Цель: убрать небезопасные и сбивающие клиентку места в админке.
 - Файлы: `src/app/api/admin/upload/route.ts`, `src/app/api/admin/promocodes/route.ts`, `src/app/(admin)/admin/layout.tsx`.
 - Входы и выходы:
@@ -345,7 +345,7 @@
 
 ### C-03. Блок отзывов из файла, скрыт пока отзывов нет
 
-- Статус: TODO
+- Статус: DONE
 - Цель: на главной не висят отзывы-заглушки; реальные скриншоты подключаются добавлением файлов.
 - Файлы: `src/content/reviews.ts` (новый), `src/components/home/ReviewsSection.tsx` (новый), `src/app/(public)/page.tsx`.
 - Входы и выходы:
@@ -450,7 +450,7 @@
 
 ### S-05. Кнопка "Скопіювати посилання" в списке товаров админки
 
-- Статус: TODO
+- Статус: DONE
 - Цель: клиентка одним нажатием берет ссылку на товар для рекламы, сторис и переписки.
 - Файлы: `src/components/admin/AdminProductsTable.tsx`, `src/app/(admin)/admin/products/page.tsx`.
 - Входы и выходы: добавить поле `slug: string` в тип `AdminProductRow` и передать его из `page.tsx` (там строки собираются из товаров Prisma). В строке товара кнопка "Скопіювати посилання": копирует `window.location.origin + "/product/" + slug` через `navigator.clipboard.writeText`, на 1.5 секунды меняет подпись на "Скопійовано". Для неопубликованного товара кнопку не показывать. Slug как текст не выводить.
