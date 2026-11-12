@@ -13,6 +13,12 @@ export function getActivePaymentMethod(): ActivePaymentMethod {
   return configured === "LIQPAY" ? "LIQPAY" : "MONOBANK";
 }
 
+// Вимикач оплати карткою. За замовчуванням увімкнено; NEXT_PUBLIC_ змінна
+// встраивається в клієнтський бандл під час збірки (див. checkout/page.tsx).
+export function isOnlinePaymentEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED !== "false";
+}
+
 export function getPaymentProvider(method: ActivePaymentMethod): PaymentProvider {
   return method === "LIQPAY" ? liqpayProvider : monobankProvider;
 }

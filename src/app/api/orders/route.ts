@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createOrderSchema } from "@/lib/checkout-schema";
-import { getActivePaymentMethod, getPaymentProvider } from "@/lib/payment";
+import { getActivePaymentMethod, getPaymentProvider, isOnlinePaymentEnabled } from "@/lib/payment";
 import { buildOrderItems, generateOrderNumber } from "@/lib/orders/build-order";
 import type { PaymentInit } from "@/lib/payment/types";
 import { getSiteUrl } from "@/lib/site-config";
@@ -52,6 +52,13 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: INVALID_ORDER_ERROR, issues: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  if (parsed.data.paymentMethod === "ONLINE_CARD" && !isOnlinePaymentEnabled()) {
+    return NextResponse.json(
+      { error: "Оплата карткою тимчасово недоступна. Оберіть накладений платіж." },
       { status: 400 }
     );
   }

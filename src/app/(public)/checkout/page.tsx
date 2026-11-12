@@ -28,6 +28,11 @@ function submitPaymentForm(url: string, fields: Record<string, string>) {
   form.submit();
 }
 
+// Дублює isOnlinePaymentEnabled з src/lib/payment/index.ts тим самим виразом:
+// index.ts тягне crypto (серверний код), тому в клієнтський компонент не імпортуємо.
+// NEXT_PUBLIC_ змінна вбудовується в бандл під час збірки.
+const isOnlinePaymentEnabled = process.env.NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED !== "false";
+
 const initialForm: CheckoutFormValues = {
   customerName: "",
   phone: "",
@@ -36,7 +41,7 @@ const initialForm: CheckoutFormValues = {
   shippingCityRef: "",
   shippingWarehouse: "",
   shippingWarehouseRef: "",
-  paymentMethod: "ONLINE_CARD",
+  paymentMethod: isOnlinePaymentEnabled ? "ONLINE_CARD" : "CASH_ON_DELIVERY",
   comment: "",
 };
 
@@ -186,12 +191,14 @@ export default function CheckoutPage() {
 
           <div>
             <p className="mb-2 text-sm font-medium text-neutral-700">Спосіб оплати</p>
-            <div className="grid grid-cols-2 gap-3">
-              <PaymentOption
-                label="Оплата карткою онлайн"
-                selected={form.paymentMethod === "ONLINE_CARD"}
-                onSelect={() => updateField("paymentMethod", "ONLINE_CARD")}
-              />
+            <div className={isOnlinePaymentEnabled ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
+              {isOnlinePaymentEnabled && (
+                <PaymentOption
+                  label="Оплата карткою онлайн"
+                  selected={form.paymentMethod === "ONLINE_CARD"}
+                  onSelect={() => updateField("paymentMethod", "ONLINE_CARD")}
+                />
+              )}
               <PaymentOption
                 label="Накладений платіж"
                 selected={form.paymentMethod === "CASH_ON_DELIVERY"}
@@ -201,7 +208,7 @@ export default function CheckoutPage() {
             {form.paymentMethod === "CASH_ON_DELIVERY" && (
               <p className="mt-2 text-xs text-neutral-500">
                 За накладений платіж Нова Пошта стягує додаткову комісію за переказ коштів —
-                вона оплачується окремо при отриманні. Оплата карткою онлайн без цієї комісії.
+                вона оплачується окремо при отриманні.{isOnlinePaymentEnabled && " Оплата карткою онлайн без цієї комісії."}
               </p>
             )}
           </div>
