@@ -389,7 +389,7 @@
 
 ### S-01. Общие метаданные и картинка превью по умолчанию
 
-- Статус: TODO
+- Статус: DONE
 - Цель: любая ссылка на сайт дает аккуратное превью в Instagram, Telegram, Viber.
 - Файлы: `src/app/layout.tsx`, `src/app/opengraph-image.tsx` (новый).
 - Входы и выходы:
@@ -403,7 +403,7 @@
 
 ### S-02. Метаданные и JSON-LD страницы товара
 
-- Статус: TODO
+- Статус: DONE
 - Цель: ссылка на товар из рекламы показывает фото, название и цену этого товара.
 - Файлы: `src/app/(public)/product/[productSlug]/page.tsx`, `src/lib/seo.ts` (новый), `src/lib/seo.test.ts` (новый).
 - Входы и выходы:
@@ -413,13 +413,13 @@
 - Критерии приемки:
   - `npm test` зеленый (тесты `truncateDescription`, `buildProductDescription`, `buildProductJsonLd`).
   - `БАЗА` зеленая, `npm run build` проходит.
-  - При запущенном сервере и существующем товаре `curl -s http://localhost:3000/product/<slug> | grep -c "application/ld+json\|product:price:amount"` печатает 2 или больше.
+  - При запущенном сервере и существующем товаре `curl -s http://localhost:3000/product/<slug> | grep -o "application/ld+json\|product:price:amount" | wc -l` печатает 2 или больше (HTML однострочный, `grep -c` всегда дает 1).
 - Модель: sonnet
 - Зависимости: S-01, C-01, F-01.
 
 ### S-03. Метаданные остальных страниц
 
-- Статус: TODO
+- Статус: DONE
 - Цель: у каждой страницы свой заголовок, служебные страницы закрыты от индексации.
 - Файлы: `src/app/(public)/catalog/[categorySlug]/page.tsx`, `src/app/(public)/catalog/page.tsx`, `src/app/(public)/search/page.tsx`, страницы `about`, `delivery`, `returns`, `contacts`, `privacy`, `size-guide`, `oferta` (`page.tsx` в `src/app/(public)/`), новые `src/app/(public)/cart/layout.tsx`, `src/app/(public)/checkout/layout.tsx`, `src/app/(public)/thank-you/layout.tsx`.
 - Входы и выходы:
@@ -436,7 +436,7 @@
 
 ### S-04. sitemap.xml и robots.txt
 
-- Статус: TODO
+- Статус: DONE
 - Цель: поисковики видят товары и категории, служебные разделы закрыты.
 - Файлы: `src/app/sitemap.ts` (новый), `src/app/robots.ts` (новый).
 - Входы и выходы:
