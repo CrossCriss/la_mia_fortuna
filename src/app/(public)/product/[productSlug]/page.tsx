@@ -5,21 +5,24 @@ import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductOptions } from "@/components/product/ProductOptions";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { buildProductWhereForCategory } from "@/lib/catalog";
+import { SITE } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 
-const ACCORDION_SECTIONS = [
-  {
-    title: "Про модель",
-    text: "Верх з натуральної шкіри, всередині тепле хутро. Розміри 36 до 41.",
-  },
+const ACCORDION_SECTIONS: {
+  title: string;
+  text: string;
+  link?: { href: string; label: string };
+}[] = [
   {
     title: "Розмір і посадка",
     text: "Надішли довжину стопи в сантиметрах, і ми підкажемо розмір для цієї моделі.",
+    link: { href: "/size-guide", label: "Розмірна сітка" },
   },
   {
     title: "Доставка та оплата",
     text: "Відправляємо швидко по Україні.",
+    link: { href: "/delivery", label: "Детальніше" },
   },
 ];
 
@@ -104,7 +107,7 @@ export default async function ProductPage({
           </div>
 
           <a
-            href="https://t.me"
+            href={SITE.telegramUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex min-h-14 w-full items-center justify-center border border-ink text-[15px] font-bold text-ink hover:bg-ink hover:text-background"
@@ -131,6 +134,14 @@ export default async function ProductPage({
                   <span aria-hidden>+</span>
                 </summary>
                 <p className="mt-3 text-[15px] text-ink-soft">{section.text}</p>
+                {section.link && (
+                  <Link
+                    href={section.link.href}
+                    className="mt-3 inline-block text-[15px] font-semibold text-ink underline underline-offset-4"
+                  >
+                    {section.link.label}
+                  </Link>
+                )}
               </details>
             ))}
           </div>
