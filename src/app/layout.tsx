@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Cormorant_Garamond } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { SITE, getSiteUrl } from "@/lib/site-config";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -15,12 +16,22 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "La Mia Fortuna Shoes",
+    default: SITE.name,
     template: "%s | La Mia Fortuna Shoes",
   },
-  description:
-    "Жіноче взуття з натуральної шкіри. Власне виробництво, Харків, 15 років досвіду.",
+  description: SITE.description,
+  openGraph: {
+    type: "website",
+    locale: "uk_UA",
+    siteName: SITE.name,
+    title: SITE.name,
+    description: SITE.description,
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 // mobile-first: трафік з Instagram/Google — 90%+ мобільний (ТЗ §3)
