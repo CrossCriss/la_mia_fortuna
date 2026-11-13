@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -5,7 +7,8 @@ import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductOptions } from "@/components/product/ProductOptions";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { buildProductWhereForCategory } from "@/lib/catalog";
-import { SITE } from "@/lib/site-config";
+import { SITE, getSiteUrl } from "@/lib/site-config";
+import { buildProductDescription, buildProductJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -26,19 +29,60 @@ const ACCORDION_SECTIONS: {
   },
 ];
 
-export default async function ProductPage({
-  params,
-}: {
-  params: { productSlug: string };
-}) {
-  const product = await prisma.product.findUnique({
-    where: { slug: params.productSlug, isPublished: true },
+// Один запит на рендер: generateMetadata і сторінка ділять результат через cache().
+const getProduct = cache(async (slug: string) =>
+  prisma.product.findUnique({
+    where: { slug, isPublished: true },
     include: {
       images: { orderBy: { position: "asc" } },
       variants: { include: { size: true, color: true } },
       category: true,
     },
+  }),
+);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { productSlug: string };
+}): Promise<Metadata> {
+  const product = await getProduct(params.productSlug);
+  if (!product) return {};
+
+  const description = buildProductDescription({
+    name: product.name,
+    seoDescription: product.seoDescription,
+    description: product.description,
   });
+  const path = `/product/${product.slug}`;
+  const firstImage = product.images[0]?.url;
+  const finalPrice = product.discountPrice ?? product.price;
+
+  return {
+    title: product.name,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      title: product.name,
+      description,
+      url: path,
+      // Без фото явно ставимо картинку за замовчуванням з кореневого opengraph-image.tsx,
+      // інакше openGraph сторінки повністю замінює батьківський і og:image зникає.
+      images: [firstImage ?? "/opengraph-image"],
+    },
+    other: {
+      "product:price:amount": String(Number(finalPrice)),
+      "product:price:currency": "UAH",
+    },
+  };
+}
+
+export default async function ProductPage({
+  params,
+}: {
+  params: { productSlug: string };
+}) {
+  const product = await getProduct(params.productSlug);
 
   if (!product) notFound();
 
@@ -71,8 +115,27 @@ export default async function ProductPage({
       images: p.images,
     }));
 
+  const jsonLd = buildProductJsonLd({
+    name: product.name,
+    description: buildProductDescription({
+      name: product.name,
+      seoDescription: product.seoDescription,
+      description: product.description,
+    }),
+    slug: product.slug,
+    sku: product.sku,
+    images: product.images.map((image) => image.url),
+    price: Number(product.discountPrice ?? product.price),
+    inStock: product.variants.some((variant) => variant.stock > 0),
+    siteUrl: getSiteUrl(),
+  });
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
       <div className="flex flex-wrap gap-2 text-sm text-ink-soft">
         <Link href="/">Головна</Link>
         <span aria-hidden>/</span>
