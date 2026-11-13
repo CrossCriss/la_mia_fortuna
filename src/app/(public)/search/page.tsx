@@ -1,10 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 
 export const dynamic = "force-dynamic";
+
+// Результати пошуку не індексуємо: це динамічна сторінка з безліччю запитів.
+export const metadata: Metadata = {
+  title: "Пошук",
+  robots: { index: false },
+};
 
 const PAGE_SIZE = 24;
 const MIN_QUERY_LENGTH = 2;

@@ -1,6 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
 import { SITE } from "@/lib/site-config";
+
+export const metadata: Metadata = {
+  title: "Публічна оферта",
+  alternates: { canonical: "/oferta" },
+};
 
 const EMPTY = "[буде додано]";
 

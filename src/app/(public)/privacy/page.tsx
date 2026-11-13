@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
 import { SITE } from "@/lib/site-config";
+
+export const metadata: Metadata = {
+  title: "Політика конфіденційності",
+  alternates: { canonical: "/privacy" },
+};
 
 // ТИМЧАСОВИЙ ТЕКСТ (чернетка) для демонстрації клієнтці.
 // Обов'язкова для прийому платежів і реклами в Google/Meta (ТЗ §4) — перед

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { findCategoryBySlug, buildProductWhereForCategory, getPrintFilterData } from "@/lib/catalog";
@@ -9,6 +10,23 @@ import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 24;
+
+// Метадані категорії: назва з БД, канонічний URL без параметрів фільтрів.
+// findCategoryBySlug кешується (unstable_cache), тож повторний виклик з
+// generateMetadata не створює зайвого запиту до БД.
+export async function generateMetadata({
+  params,
+}: {
+  params: { categorySlug: string };
+}): Promise<Metadata> {
+  const category = await findCategoryBySlug(params.categorySlug);
+  if (!category) return {};
+  return {
+    title: category.name,
+    description: `${category.name} - La Mia Fortuna Shoes. Жіноче взуття з натуральної шкіри, доставка по Україні.`,
+    alternates: { canonical: `/catalog/${category.slug}` },
+  };
+}
 
 function parseListParam(value?: string) {
   return value ? value.split(",").filter(Boolean) : [];

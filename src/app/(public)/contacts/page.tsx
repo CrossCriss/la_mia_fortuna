@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
 import { SITE } from "@/lib/site-config";
+
+export const metadata: Metadata = {
+  title: "Контакти",
+  alternates: { canonical: "/contacts" },
+};
 
 // Email і графік роботи клієнтка ще не надала — позначено заглушкою,
 // телефон/Instagram — реальні дані з макета (Main.dc.html, футер).

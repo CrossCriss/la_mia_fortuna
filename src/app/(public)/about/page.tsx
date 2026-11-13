@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+
+export const metadata: Metadata = {
+  title: "Про нас",
+  alternates: { canonical: "/about" },
+};
 
 // Розгорнута історія бренду від клієнтки ще не надана — залишаємо
 // короткий текст з макета (Main.dc.html) і позначку-заглушку.

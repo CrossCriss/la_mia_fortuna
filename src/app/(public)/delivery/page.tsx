@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+
+export const metadata: Metadata = {
+  title: "Доставка та оплата",
+  alternates: { canonical: "/delivery" },
+};
 
 // ТИМЧАСОВИЙ ТЕКСТ для демонстрації клієнтці — уточнити реальні терміни,
 // вартість доставки та точні умови оплати.

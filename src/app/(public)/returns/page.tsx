@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+
+export const metadata: Metadata = {
+  title: "Повернення/обмін",
+  alternates: { canonical: "/returns" },
+};
 
 // ТИМЧАСОВИЙ ТЕКСТ для демонстрації клієнтці — узгодити реальні умови
 // повернення/обміну з чинним законодавством про захист прав споживачів.

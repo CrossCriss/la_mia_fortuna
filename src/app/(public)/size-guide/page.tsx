@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
+
+export const metadata: Metadata = {
+  title: "Розмірна сітка",
+  alternates: { canonical: "/size-guide" },
+};
 
 // Орієнтовна таблиця (стандартне співвідношення EU-розміру і довжини стопи
 // в см) — клієнтка просила розділ "Розмірна сітка" (запит від 2026-11-06),

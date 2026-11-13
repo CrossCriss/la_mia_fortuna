@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { CategoryGrid } from "@/components/catalog/CategoryGrid";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Каталог",
+  alternates: { canonical: "/catalog" },
+};
 
 // Каталог: список категорій верхнього рівня.
 export default function CatalogPage() {
