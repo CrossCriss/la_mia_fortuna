@@ -254,7 +254,7 @@ model Order {
 
   shippingCity         String?
   shippingWarehouse    String? // отделение/адрес Новой Почты (отображаемое название)
-  shippingCityRef      String? // Nova Poshta Ref (GUID) города — из searchSettlements
+  shippingCityRef      String? // Nova Poshta Ref (GUID) города: DeliveryCity из searchSettlements (идентификатор города для getWarehouses)
   shippingWarehouseRef String? // Nova Poshta Ref (GUID) отделения — из getWarehouses
   trackingNumber       String? // ТТН — показывается на странице "Спасибо за заказ"
 
