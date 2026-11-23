@@ -548,7 +548,7 @@
 
 ### A-06. Сохранение источника в заказ
 
-- Статус: TODO
+- Статус: DONE
 - Цель: в каждом заказе хранится, откуда пришел покупатель.
 - Файлы: `prisma/schema.prisma`, новая папка миграции в `prisma/migrations/`, `src/lib/checkout-schema.ts`, `src/lib/checkout-schema.test.ts`, `src/app/api/orders/route.ts`, `src/app/(public)/checkout/page.tsx`.
 - Входы и выходы:
@@ -558,14 +558,14 @@
   - Роут: сохранить `attribution` в заказ (если есть).
 - Критерии приемки:
   - `npx prisma validate` без ошибок; `git status --short prisma/migrations` показывает одну новую папку, в ее `migration.sql` только `ALTER TABLE "Order" ADD COLUMN "attribution" JSONB;`.
-  - `npm test` зеленый (тест схемы: объект с метками проходит, лишний ключ отбрасывается, строка длиннее 200 символов отклоняется).
+  - `npm test` зеленый (тест схемы: объект с метками проходит, лишний ключ отбрасывается, строка длиннее 200 символов: атрибуция отбрасывается целиком, сам заказ остается валидным).
   - `БАЗА` зеленая.
 - Модель: sonnet
 - Зависимости: A-05, A-03, O-08.
 
 ### A-07. Источник заказа в админке и в Telegram
 
-- Статус: TODO
+- Статус: DONE
 - Цель: клиентка видит, какая реклама принесла заказ.
 - Файлы: `src/app/(admin)/admin/orders/[id]/page.tsx`, `src/lib/notify/telegram.ts`, `src/lib/notify/telegram.test.ts`.
 - Входы и выходы:
