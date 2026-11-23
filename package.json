@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:env": "node --env-file=.env scripts/check-env.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
