@@ -991,7 +991,7 @@
 
 ### AS-15. Переменные окружения и документация защиты
 
-- Статус: IN PROGRESS
+- Статус: DONE
 - Цель: владелец и клиентка знают, как включить Turnstile, как работает черный список и как проверить защиту руками.
 - Файлы: `.env.example`, `scripts/check-env.mjs`, `DEPLOY-CHECKLIST.md`, `CREDENTIALS.md`, `CLAUDE.md`, `docs/admin-guide.md`, `docs/acceptance.md`.
 - Входы и выходы:
