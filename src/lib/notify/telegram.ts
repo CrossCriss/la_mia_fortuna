@@ -26,6 +26,8 @@ export interface NotifyOrder {
   comment?: string | null;
   total: MoneyLike;
   items: NotifyOrderItem[];
+  // JSON з БД (поле attribution замовлення): може бути будь-чим
+  attribution?: unknown;
 }
 
 function money(value: MoneyLike): string {
@@ -35,6 +37,34 @@ function money(value: MoneyLike): string {
 
 function clean(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+const MAX_ATTRIBUTION_VALUE_LENGTH = 60;
+
+// Одне значення мітки: переводи рядків замінюємо пробілом, обрізаємо довжину.
+// Значення приходять від відвідувача, тож у повідомленні вони лише звичайний текст.
+function cleanAttributionValue(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const flat = value.replace(/[\r\n\u2028\u2029]+/g, " ").trim();
+  return Array.from(flat).slice(0, MAX_ATTRIBUTION_VALUE_LENGTH).join("").trim();
+}
+
+// Людська назва джерела для адмінки і Telegram, наприклад "instagram / paid / назва_кампанії".
+// Повертає null, якщо міток немає або значення не є об'єктом.
+export function formatAttribution(attribution: unknown): string | null {
+  if (!attribution || typeof attribution !== "object" || Array.isArray(attribution)) {
+    return null;
+  }
+  const data = attribution as Record<string, unknown>;
+
+  const parts = [data.utm_source, data.utm_medium, data.utm_campaign]
+    .map(cleanAttributionValue)
+    .filter(Boolean);
+  if (parts.length > 0) return parts.join(" / ");
+
+  if (cleanAttributionValue(data.fbclid)) return "Реклама Meta";
+
+  return null;
 }
 
 function formatItem(item: NotifyOrderItem, index: number): string {
@@ -66,6 +96,9 @@ export function formatNewOrderMessage(order: NotifyOrder, adminUrl: string): str
   if (delivery) lines.push(`Доставка (Нова Пошта): ${delivery}`);
 
   lines.push("", "Товари:", ...order.items.map(formatItem), "", `Сума: ${money(order.total)}`, `Оплата: ${payment}`);
+
+  const source = formatAttribution(order.attribution);
+  if (source) lines.push(`Джерело: ${source}`);
 
   const comment = clean(order.comment);
   if (comment) lines.push("", `Коментар: ${comment}`);

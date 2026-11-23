@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  formatAttribution,
   formatNewOrderMessage,
   formatPaidMessage,
   resetTelegramWarningForTests,
@@ -79,6 +80,74 @@ describe("formatNewOrderMessage", () => {
 
   it("не містить довгих тире", () => {
     expect(formatNewOrderMessage(baseOrder, url)).not.toMatch(LONG_DASH);
+  });
+
+  it("додає рядок 'Джерело:', коли атрибуція є", () => {
+    const text = formatNewOrderMessage(
+      { ...baseOrder, attribution: { utm_source: "instagram", utm_medium: "paid", utm_campaign: "spring" } },
+      url
+    );
+    expect(text).toContain("Джерело: instagram / paid / spring");
+  });
+
+  it("не додає рядок 'Джерело:', коли атрибуції немає або вона порожня", () => {
+    expect(formatNewOrderMessage(baseOrder, url)).not.toContain("Джерело:");
+    expect(formatNewOrderMessage({ ...baseOrder, attribution: null }, url)).not.toContain("Джерело:");
+    expect(formatNewOrderMessage({ ...baseOrder, attribution: {} }, url)).not.toContain("Джерело:");
+  });
+});
+
+describe("formatAttribution", () => {
+  it("збирає джерело, medium і кампанію через ' / '", () => {
+    expect(formatAttribution({ utm_source: "instagram", utm_medium: "paid", utm_campaign: "назва_кампанії" })).toBe(
+      "instagram / paid / назва_кампанії"
+    );
+  });
+
+  it("працює лише з джерелом", () => {
+    expect(formatAttribution({ utm_source: "facebook" })).toBe("facebook");
+  });
+
+  it("джерело і medium без кампанії", () => {
+    expect(formatAttribution({ utm_source: "instagram", utm_medium: "paid" })).toBe("instagram / paid");
+  });
+
+  it("лише fbclid дає 'Реклама Meta'", () => {
+    expect(formatAttribution({ fbclid: "IwAR123" })).toBe("Реклама Meta");
+  });
+
+  it("порожній fbclid не дає результату", () => {
+    expect(formatAttribution({ fbclid: "   " })).toBeNull();
+  });
+
+  it("пустий об'єкт, null і не-об'єкти повертають null", () => {
+    expect(formatAttribution({})).toBeNull();
+    expect(formatAttribution(null)).toBeNull();
+    expect(formatAttribution(undefined)).toBeNull();
+    expect(formatAttribution("instagram")).toBeNull();
+    expect(formatAttribution(42)).toBeNull();
+    expect(formatAttribution(["instagram", "paid"])).toBeNull();
+  });
+
+  it("ігнорує нестрокові значення", () => {
+    expect(formatAttribution({ utm_source: 123, utm_medium: { x: 1 }, utm_campaign: null, fbclid: 5 })).toBeNull();
+    expect(formatAttribution({ utm_source: "instagram", utm_medium: 7, utm_campaign: ["x"] })).toBe("instagram");
+  });
+
+  it("обрізає значення до 60 символів", () => {
+    const long = "а".repeat(100);
+    const result = formatAttribution({ utm_campaign: long });
+    expect(result).toBe("а".repeat(60));
+    expect(result).toHaveLength(60);
+  });
+
+  it("замінює переводи рядків пробілом і прибирає пробіли по краях", () => {
+    expect(formatAttribution({ utm_source: "  insta\ngram\r\nfake  " })).toBe("insta gram fake");
+    expect(formatAttribution({ utm_source: "x\u2028y" })).toBe("x y");
+  });
+
+  it("порожні рядки з пробілів пропускаються", () => {
+    expect(formatAttribution({ utm_source: "   ", utm_medium: "paid" })).toBe("paid");
   });
 });
 

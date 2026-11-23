@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/format-price";
+import { formatAttribution } from "@/lib/notify/telegram";
 import { OrderStatusControl } from "@/components/admin/OrderStatusControl";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,8 @@ export default async function AdminOrderDetailPage({
               <dd>{order.shippingWarehouse ?? "—"}</dd>
               <dt className="text-neutral-500">Коментар</dt>
               <dd>{order.comment ?? "—"}</dd>
+              <dt className="text-neutral-500">Звідки прийшов покупець</dt>
+              <dd>{formatAttribution(order.attribution) ?? "Прямий перехід або невідомо"}</dd>
             </dl>
           </section>
 
