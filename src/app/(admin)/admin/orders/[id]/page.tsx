@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/format-price";
 import { formatAttribution } from "@/lib/notify/telegram";
 import { OrderStatusControl } from "@/components/admin/OrderStatusControl";
+import { BlockPhoneButton } from "@/components/admin/BlockPhoneButton";
+import { normalizeUaPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,11 @@ export default async function AdminOrderDetailPage({
 
   if (!order) notFound();
 
+  const normalizedPhone = normalizeUaPhone(order.phone);
+  const blockedRow = normalizedPhone
+    ? await prisma.blockedPhone.findUnique({ where: { phone: normalizedPhone } })
+    : null;
+
   return (
     <div>
       <h1 className="text-2xl font-semibold">Замовлення {order.orderNumber}</h1>
@@ -39,11 +46,27 @@ export default async function AdminOrderDetailPage({
         <div className="space-y-6">
           <section className="rounded-lg border border-neutral-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-neutral-900">Клієнт і доставка</h2>
+            {order.addressUnverified && (
+              <p className="mb-3 rounded border border-yellow-300 bg-yellow-100 p-3 text-sm text-yellow-900">
+                Адресу доставки не вдалося перевірити автоматично. Уточніть місто і відділення, коли телефонуватимете покупцю.
+              </p>
+            )}
             <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
               <dt className="text-neutral-500">Ім&apos;я</dt>
               <dd>{order.customerName}</dd>
               <dt className="text-neutral-500">Телефон</dt>
-              <dd>{order.phone}</dd>
+              <dd>
+                <div>{order.phone}</div>
+                {normalizedPhone && (
+                  <div className="mt-2">
+                    <BlockPhoneButton
+                      phone={normalizedPhone}
+                      blocked={Boolean(blockedRow)}
+                      reason={blockedRow?.reason}
+                    />
+                  </div>
+                )}
+              </dd>
               <dt className="text-neutral-500">Email</dt>
               <dd>{order.email ?? "—"}</dd>
               <dt className="text-neutral-500">Місто</dt>
