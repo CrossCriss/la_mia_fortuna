@@ -28,6 +28,8 @@ export interface NotifyOrder {
   items: NotifyOrderItem[];
   // JSON з БД (поле attribution замовлення): може бути будь-чим
   attribution?: unknown;
+  // Адресу не вдалося перевірити автоматично: у повідомленні додається попередження
+  addressUnverified?: boolean;
 }
 
 function money(value: MoneyLike): string {
@@ -94,6 +96,9 @@ export function formatNewOrderMessage(order: NotifyOrder, adminUrl: string): str
   if (email) lines.push(`Email: ${email}`);
 
   if (delivery) lines.push(`Доставка (Нова Пошта): ${delivery}`);
+  if (order.addressUnverified) {
+    lines.push("Увага: адресу не перевірено автоматично, уточніть місто і відділення");
+  }
 
   lines.push("", "Товари:", ...order.items.map(formatItem), "", `Сума: ${money(order.total)}`, `Оплата: ${payment}`);
 

@@ -82,6 +82,17 @@ describe("formatNewOrderMessage", () => {
     expect(formatNewOrderMessage(baseOrder, url)).not.toMatch(LONG_DASH);
   });
 
+  it("додає попередження про неперевірену адресу, коли addressUnverified = true", () => {
+    const text = formatNewOrderMessage({ ...baseOrder, addressUnverified: true }, url);
+    expect(text).toContain("Увага: адресу не перевірено автоматично, уточніть місто і відділення");
+  });
+
+  it("не додає попередження при addressUnverified = false або без поля", () => {
+    const warning = "Увага: адресу не перевірено автоматично";
+    expect(formatNewOrderMessage({ ...baseOrder, addressUnverified: false }, url)).not.toContain(warning);
+    expect(formatNewOrderMessage(baseOrder, url)).not.toContain(warning);
+  });
+
   it("додає рядок 'Джерело:', коли атрибуція є", () => {
     const text = formatNewOrderMessage(
       { ...baseOrder, attribution: { utm_source: "instagram", utm_medium: "paid", utm_campaign: "spring" } },
