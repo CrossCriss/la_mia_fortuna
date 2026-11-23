@@ -110,7 +110,10 @@ export function ProductForm({
         const response = await fetch("/api/admin/upload", { method: "POST", body });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error ?? "Не вдалося завантажити фото");
-        updateField("images", [...form.images, { url: data.url, alt: form.name }]);
+        setForm((prev) => ({
+          ...prev,
+          images: [...prev.images, { url: data.url, alt: prev.name }],
+        }));
       }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Сталася помилка завантаження");
