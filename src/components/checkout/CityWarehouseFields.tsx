@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  AUTOCOMPLETE_DEBOUNCE_MS,
+  CITY_MIN_QUERY_LENGTH,
+  WAREHOUSE_MIN_QUERY_LENGTH,
+  isAbortError,
+  shouldSearch,
+} from "@/lib/checkout/autocomplete";
 
 type NovaPoshtaCity = { ref: string; name: string; area: string };
 type NovaPoshtaWarehouse = { ref: string; description: string; shortAddress: string; number: string };
@@ -34,8 +41,9 @@ export function CityWarehouseFields({
           onCityChange({ ref: option.ref, label: option.label });
           onWarehouseChange({ ref: "", label: "" });
         }}
-        fetchOptions={async (query) => {
-          const response = await fetch(`/api/delivery/nova-poshta/cities?q=${encodeURIComponent(query)}`);
+        minQueryLength={CITY_MIN_QUERY_LENGTH}
+        fetchOptions={async (query, signal) => {
+          const response = await fetch(`/api/delivery/nova-poshta/cities?q=${encodeURIComponent(query)}`, { signal });
           if (!response.ok) return [];
           const cities: NovaPoshtaCity[] = await response.json();
           return cities.map((c) => ({ ref: c.ref, label: `${c.name}${c.area ? `, ${c.area}` : ""}` }));
@@ -49,10 +57,13 @@ export function CityWarehouseFields({
         placeholder={city.ref ? "Номер або адреса відділення" : "Спочатку оберіть місто"}
         disabled={!city.ref}
         onSelect={(option) => onWarehouseChange({ ref: option.ref, label: option.label })}
-        fetchOptions={async (query) => {
+        searchKey={city.ref}
+        minQueryLength={WAREHOUSE_MIN_QUERY_LENGTH}
+        fetchOptions={async (query, signal) => {
           if (!city.ref) return [];
           const response = await fetch(
-            `/api/delivery/nova-poshta/warehouses?cityRef=${encodeURIComponent(city.ref)}&q=${encodeURIComponent(query)}`
+            `/api/delivery/nova-poshta/warehouses?cityRef=${encodeURIComponent(city.ref)}&q=${encodeURIComponent(query)}`,
+            { signal }
           );
           if (!response.ok) return [];
           const warehouses: NovaPoshtaWarehouse[] = await response.json();
@@ -71,6 +82,8 @@ function Combobox({
   placeholder,
   disabled,
   error,
+  searchKey,
+  minQueryLength,
   fetchOptions,
   onSelect,
 }: {
@@ -79,13 +92,19 @@ function Combobox({
   placeholder?: string;
   disabled?: boolean;
   error?: string;
-  fetchOptions: (query: string) => Promise<Option[]>;
+  // Додатковий ключ, зміна якого потребує нового запиту (наприклад, обране місто).
+  searchKey?: string;
+  minQueryLength: number;
+  fetchOptions: (query: string, signal: AbortSignal) => Promise<Option[]>;
   onSelect: (option: Option) => void;
 }) {
   const [query, setQuery] = useState(value);
   const [options, setOptions] = useState<Option[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Свіжа функція завжди в ref, щоб ререндер батька не запускав новий запит.
+  const fetchOptionsRef = useRef(fetchOptions);
+  fetchOptionsRef.current = fetchOptions;
 
   useEffect(() => setQuery(value), [value]);
 
@@ -100,15 +119,27 @@ function Combobox({
   }, []);
 
   useEffect(() => {
-    if (!isOpen || query.trim().length < 2) {
+    if (!isOpen || !shouldSearch(query, minQueryLength)) {
       setOptions([]);
       return;
     }
+    const controller = new AbortController();
     const timeout = setTimeout(() => {
-      fetchOptions(query).then(setOptions);
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [query, isOpen, fetchOptions]);
+      fetchOptionsRef
+        .current(query, controller.signal)
+        .then((result) => {
+          if (!controller.signal.aborted) setOptions(result);
+        })
+        .catch((error) => {
+          if (isAbortError(error) || controller.signal.aborted) return;
+          setOptions([]);
+        });
+    }, AUTOCOMPLETE_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [query, isOpen, searchKey, minQueryLength]);
 
   return (
     <div ref={containerRef} className="relative">
