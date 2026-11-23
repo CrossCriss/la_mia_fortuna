@@ -1,14 +1,30 @@
 import Link from "next/link";
 import { SITE } from "@/lib/site-config";
+import { prisma } from "@/lib/prisma";
+
+// Сезонні розділи верхнього рівня беремо з БД так само, як у хедері.
+// Якщо БД недоступна, футер показує лише Новинки/Розпродаж.
+async function getSeasonLinks() {
+  try {
+    const seasons = await prisma.category.findMany({
+      where: { parentId: null, isVisible: true, kind: "REGULAR" },
+      select: { name: true, slug: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    return seasons.map((season) => ({ href: `/catalog/${season.slug}`, label: season.name }));
+  } catch {
+    return [];
+  }
+}
 
 export async function Footer() {
-  // "Магазин" — Новинки/Розпродаж за флагами товару; сезонні розділи
-  // (Зимове/Демісезонне/Літнє взуття) тепер самі верхній рівень каталогу і
-  // вже є в хедері, тож тут їх не дублюємо.
+  // "Магазин": сезонні розділи з БД, далі Новинки/Розпродаж за флагами товару.
+  const seasonLinks = await getSeasonLinks();
   const footerColumns = [
     {
       title: "Магазин",
       links: [
+        ...seasonLinks,
         { href: "/catalog/novynky", label: "Новинки" },
         { href: "/catalog/aktsii", label: "Розпродаж" },
       ],
