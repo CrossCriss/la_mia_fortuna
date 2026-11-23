@@ -39,15 +39,16 @@
 | 5. Аналитика и реклама | A-01 - A-07 | 7 |
 | 6. Скорость на мобильном | P-01 - P-03 | 3 |
 | 7. Документация, тесты, приемка | D-01, D-02, Q-01 - Q-03 | 5 |
-| Всего | | 39 |
+| 8. Защита чекаута от фейковых заказов | AS-01 - AS-15 | 15 |
+| Всего | | 54 |
 
-Параллельные (без зависимостей): F-01, F-02, F-03, F-06, C-03, S-05.
+Параллельные (без зависимостей): F-01, F-02, F-03, F-06, C-03, S-05; этап 8: AS-01, AS-03, AS-04, AS-05, AS-06, AS-07, AS-14.
 
 Цепочки по общим файлам (для оркестратора):
 
 - `package.json`: F-01 -> F-04 -> Q-01
-- `src/app/api/orders/route.ts`: O-02 -> O-06 -> O-07 -> O-08 -> A-06
-- `src/app/(public)/checkout/page.tsx`: C-02 -> O-08 -> A-03 -> A-06
+- `src/app/api/orders/route.ts`: O-02 -> O-06 -> O-07 -> O-08 -> A-06 -> AS-11
+- `src/app/(public)/checkout/page.tsx`: C-02 -> O-08 -> A-03 -> A-06 -> AS-12 -> AS-13
 - `src/app/(public)/product/[productSlug]/page.tsx`: C-01 -> S-02 -> A-03 -> P-03
 - `src/app/(public)/thank-you/page.tsx`: O-05 -> A-04
 - `src/app/(public)/layout.tsx`: A-02 -> A-05
@@ -55,9 +56,11 @@
 - `src/components/catalog/ProductCard.tsx`: A-03 -> P-02
 - `src/lib/payment/monobank.ts`: O-03 -> O-04 -> O-05
 - `src/lib/payment/apply-webhook.ts`: O-03 -> O-06
-- `src/lib/checkout-schema.ts`: O-02 -> A-06
-- `src/lib/notify/telegram.ts`: O-06 -> A-07
+- `src/lib/checkout-schema.ts`: O-02 -> A-06 -> AS-02
+- `src/lib/notify/telegram.ts`: O-06 -> A-07 -> AS-14
 - `src/components/layout/Footer.tsx`, `contacts/page.tsx`: F-02 -> C-02 -> S-03
+- `src/app/(admin)/admin/orders/[id]/page.tsx`: A-07 -> AS-09
+- `src/app/(admin)/admin/layout.tsx`: F-06 -> AS-10
 
 ---
 
@@ -706,6 +709,309 @@
 
 ---
 
+## Этап 8. Захист чекауту від фейкових замовлень
+
+Обоснование: `docs/architecture.md`, раздел 5.9. Задачи этапа 8 не зависят от задач этапов 1-7 (все нужные из них выполнены).
+
+Общее для всех задач этапа:
+
+- `ТИРЕ` = `(git diff -U0 HEAD | grep '^+'; git ls-files -o --exclude-standard -z | xargs -0 cat) | grep -c -e $'\xe2\x80\x94' -e $'\xe2\x80\x93'` печатает `0` (в добавленных строках и новых файлах нет длинных тире).
+- Тексты для покупателя и клиентки на украинском. Тексты ошибок для покупателя берутся только из `src/lib/checkout-errors.ts` (AS-03), не дублируются в других файлах.
+- Канонический вид номера: `380XXXXXXXXX` (12 цифр). В `Order.phone` новых заказов пишется `+380XXXXXXXXX`, в `BlockedPhone.phone` пишется `380XXXXXXXXX`.
+- Тестовые ключи Cloudflare Turnstile для локальной проверки (публичные, из документации Cloudflare): site key `1x00000000000000000000AA` (всегда проходит), secret `1x0000000000000000000000000000000AA` (всегда проходит), secret `2x0000000000000000000000000000000AA` (всегда отказ). В `.env` не коммитить, задавать в командной строке.
+
+### AS-01. Нормализация и проверка украинского мобильного номера
+
+- Статус: TODO
+- Цель: любой вариант записи одного номера (`+380`, `380`, `80`, `0`, с пробелами и скобками) превращается в один канонический вид; не мобильные и не украинские номера отклоняются.
+- Файлы: `src/lib/phone.ts` (новый), `src/lib/phone.test.ts` (новый).
+- Входы и выходы:
+  - `export const UA_MOBILE_CODES = ["39", "50", "63", "66", "67", "68", "73", "75", "77", "91", "92", "93", "94", "95", "96", "97", "98", "99"] as const` (код оператора без ведущего 0; комментарий: список дополняется здесь, если появится новый код).
+  - `normalizeUaPhone(input: string): string | null`: убрать пробелы, `-`, `(`, `)`, `.`; допустимые формы после очистки: `+380XXXXXXXXX`, `380XXXXXXXXX`, `80XXXXXXXXX`, `0XXXXXXXXX` (X - цифры); любой другой символ или длина -> `null`; первые 2 цифры после `0` должны быть в `UA_MOBILE_CODES`, иначе `null`. Результат `380` + 9 цифр.
+  - `phoneLookupVariants(normalized: string): string[]` -> `["380XXXXXXXXX", "+380XXXXXXXXX", "0XXXXXXXXX"]` (для поиска старых заказов, где номер сохранен как ввел покупатель).
+  - `formatUaPhone(normalized: string): string` -> `"+380 50 123 45 67"` (для показа в админке).
+  - Модуль без импортов из сервера и БД (используется и в браузере).
+- Критерии приемки:
+  - `npm test` зеленый; тесты: `0501234567`, `+380501234567`, `380501234567`, `80501234567`, `+38 (050) 123-45-67` дают `380501234567`; городской `0577001122` (код 57), польский `+48501234567`, буквы, 9 и 11 цифр после `0` дают `null`; каждый код из `UA_MOBILE_CODES` проходит; `phoneLookupVariants` и `formatUaPhone` на примере.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### AS-02. Строгая схема полей чекаута
+
+- Статус: TODO
+- Цель: мусорные и ботовые данные отсекаются одной схемой Zod и на клиенте, и на сервере.
+- Файлы: `src/lib/checkout-schema.ts`, `src/lib/checkout-schema.test.ts`.
+- Входы и выходы:
+  - `customerName`: перед проверкой `trim`, схлопнуть пробелы, апострофы `’`, `ʼ`, `` ` `` заменить на `'`. Максимум 60 символов. 2 или 3 слова через пробел; слово: буквы `A-Za-zА-Яа-яЁёҐґЄєІіЇї`, внутри слова допускаются `'` и `-` между буквами (`О'Коннор`, `Анна-Марія`), длина слова от 2 до 30. Ошибка: "Вкажіть ім'я та прізвище, наприклад: Марія Іваненко". Регулярное выражение вынести в константу с комментарием.
+  - `phone`: `trim`, `max(20)`, затем `transform` через `normalizeUaPhone` (AS-01); `null` -> ошибка "Вкажіть український мобільний номер, наприклад 050 123 45 67". Выход схемы: `380XXXXXXXXX`.
+  - `email`: необязательный или `""`, `max(100)`, `.email("Некоректний email")`.
+  - `shippingCity` `min(2).max(100)`, `shippingWarehouse` `min(1).max(200)`. `shippingCityRef` и `shippingWarehouseRef`: GUID `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, ошибки прежние ("Оберіть місто зі списку", "Оберіть відділення зі списку").
+  - `comment`: необязательный, `max(500, "Коментар до 500 символів")`.
+  - Экспортировать оба типа: `CheckoutFormInput = z.input<typeof checkoutFormSchema>` (состояние формы) и `CheckoutFormValues = z.output<...>`.
+  - `createOrderSchema` дополнительно: `website: z.string().max(200).optional()` (поле-ловушка), `fillMs: z.number().int().min(0).max(86_400_000).optional()`, `turnstileToken: z.string().max(4096).optional()`. Остальное (`items`, `attribution`) без изменений.
+  - Обновить существующие тесты под новые правила (имя из одного слова теперь ошибка).
+- Критерии приемки:
+  - `npm test` зеленый; новые тесты: имя "Марія Іваненко", "Анна-Марія О'Коннор", "Olena Kovalenko", "Наталья Сергеевна Мельникова" проходят; "Марія", "asdf", "Марія 123", "М І", четыре слова, 61 символ не проходят; `’` нормализуется в `'`; телефон `+38 050 123 45 67` дает `380501234567`, городской номер отклоняется; Ref не GUID отклоняется; комментарий 501 символ отклоняется; `website`, `fillMs`, `turnstileToken` принимаются и не обязательны.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: sonnet
+- Зависимости: AS-01.
+
+### AS-03. Политика наложенного платежа и тексты отказов
+
+- Статус: TODO
+- Цель: правила лимитов COD и все тексты отказов для покупателя лежат в чистых функциях с тестами.
+- Файлы: `src/lib/orders/cod-policy.ts` (новый), `src/lib/orders/cod-policy.test.ts` (новый), `src/lib/checkout-errors.ts` (новый), `src/lib/checkout-errors.test.ts` (новый).
+- Входы и выходы:
+  - `cod-policy.ts`: `COD_MAX_PAIRS = 3`, `COD_MAX_PENDING_PER_PHONE = 2`, `COD_WINDOW_MS = 24 * 60 * 60 * 1000`. `countPairs(items: { quantity: number }[]): number`. `evaluateCod({ pairs, pendingCodOrders, isBlocked }): { allowed: true } | { allowed: false; reason: "BLOCKED" | "PHONE_LIMIT" | "TOO_MANY_PAIRS" }`. Приоритет причин: `BLOCKED`, затем `PHONE_LIMIT` (`pendingCodOrders >= COD_MAX_PENDING_PER_PHONE`), затем `TOO_MANY_PAIRS` (`pairs > COD_MAX_PAIRS`).
+  - `checkout-errors.ts` (без импортов из сервера, используется роутом и чекаутом): `CHECKOUT_ERROR_CODES = { COD_UNAVAILABLE, COD_TOO_MANY_PAIRS, CHECK_FAILED, ADDRESS_INVALID }` (значения равны ключам). `codReasonToCode(reason)`: `BLOCKED` и `PHONE_LIMIT` -> `COD_UNAVAILABLE` (одинаково, чтобы не раскрывать, что сработало), `TOO_MANY_PAIRS` -> `COD_TOO_MANY_PAIRS`. `getCheckoutErrorMessage(code, { onlineEnabled: boolean }): string`, тексты дословно:
+    - `COD_UNAVAILABLE`, карта включена: "Для цього замовлення доступна лише оплата карткою онлайн. Оберіть її або напишіть нам у Telegram чи Viber, і ми допоможемо оформити замовлення."
+    - `COD_UNAVAILABLE`, карта выключена: "На жаль, зараз не вдалося оформити це замовлення на сайті. Напишіть нам у Telegram чи Viber або зателефонуйте, і ми оформимо його для вас."
+    - `COD_TOO_MANY_PAIRS`, карта включена: "Накладеним платежем можна замовити до 3 пар. Оберіть оплату карткою онлайн або напишіть нам у Telegram чи Viber, і ми оформимо більше замовлення."
+    - `COD_TOO_MANY_PAIRS`, карта выключена: "На сайті можна оформити до 3 пар в одному замовленні. Щоб замовити більше, напишіть нам у Telegram чи Viber, і ми оформимо замовлення для вас."
+    - `CHECK_FAILED` (оба случая): "Не вдалося оформити замовлення. Оновіть сторінку і спробуйте ще раз. Якщо не вийде, напишіть нам у Telegram чи Viber."
+    - `ADDRESS_INVALID` (оба случая): "Не вдалося знайти вибране відділення. Оберіть місто і відділення зі списку ще раз."
+  - Число 3 в текстах подставлять из `COD_MAX_PAIRS` (импорт из `cod-policy.ts` допустим, он тоже чистый).
+- Критерии приемки:
+  - `npm test` зеленый; тесты: 0 и 1 заказ разрешено, 2 запрещено (`PHONE_LIMIT`); 3 пары разрешено, 4 запрещено; блокировка важнее остальных причин; `BLOCKED` и `PHONE_LIMIT` дают одинаковый код и текст; у каждого кода есть непустой текст для обоих значений `onlineEnabled`; тексты не содержат слов "заблок", "ліміт", "бот".
+  - `grep -n "prisma\|next/" src/lib/orders/cod-policy.ts src/lib/checkout-errors.ts` ничего не выводит.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### AS-04. Проверка города и отделения через API Новой Почты
+
+- Статус: TODO
+- Цель: сервер убеждается, что отделение существует и принадлежит выбранному городу, и не блокирует продажи, если НП не отвечает.
+- Файлы: `src/lib/delivery/nova-poshta.ts`, `src/lib/delivery/nova-poshta.test.ts` (новый).
+- Входы и выходы:
+  - `callNovaPoshta` принимает необязательный `signal` и передает его в `fetch`. Поведение существующих функций не менять.
+  - `export type AddressCheck = "valid" | "invalid" | "unavailable"`.
+  - `verifyNovaPoshtaAddress(cityRef: string, warehouseRef: string, options?: { timeoutMs?: number }): Promise<AddressCheck>` (по умолчанию 3000 мс, `AbortSignal.timeout`). Никогда не бросает исключение.
+  - Запрос `AddressGeneral.getWarehouses` с `{ Ref: warehouseRef, CityRef: cityRef, Limit: "50" }`. Из ответа читать `Ref` и `CityRef` каждой записи.
+  - Решение вынести в чистую функцию `decideAddressCheck(response, cityRef, warehouseRef): AddressCheck`:
+    - есть запись с `Ref === warehouseRef` и `CityRef === cityRef` -> `valid`;
+    - есть запись с `Ref === warehouseRef`, но другой `CityRef` -> `invalid`;
+    - `success: true` и пустой `data` -> `invalid`;
+    - `success: true`, записи есть, но нужного `Ref` среди них нет (фильтр не сработал) -> `unavailable` (не блокируем честного покупателя);
+    - `success: false` -> `unavailable`.
+  - Нет `NOVA_POSHTA_API_KEY`, ошибка сети, таймаут, HTTP не 2xx, невалидный JSON -> `unavailable` (`console.error` без персональных данных).
+  - Исполнитель один раз проверяет вручную на реальном ключе, что `getWarehouses` фильтрует по `Ref` (запрос с Ref реального отделения возвращает ровно его); результат написать в отчете. Если фильтр не работает, остановиться и сообщить оркестратору, не придумывая обход.
+- Критерии приемки:
+  - `npm test` зеленый, сеть подменена `vi.stubGlobal("fetch", ...)`: valid; отделение другого города (`invalid`); пустой ответ (`invalid`); записи без нужного Ref (`unavailable`); `success: false`; HTTP 500; `fetch` бросает (имитация таймаута); нет ключа (`fetch` не вызывается, `unavailable`). Плюс тесты `decideAddressCheck` напрямую.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### AS-05. Серверная проверка токена Cloudflare Turnstile
+
+- Статус: TODO
+- Цель: сервер проверяет токен Turnstile; без ключа функция выключена, сбой Cloudflare не ломает продажи.
+- Файлы: `src/lib/antibot/turnstile.ts` (новый), `src/lib/antibot/turnstile.test.ts` (новый).
+- Входы и выходы:
+  - `isTurnstileEnabled(): boolean` - непустой `process.env.TURNSTILE_SECRET_KEY`.
+  - `export type TurnstileResult = "ok" | "failed" | "unavailable" | "disabled"`.
+  - `verifyTurnstileToken(token: string | undefined, remoteIp: string | null, options?: { timeoutMs?: number }): Promise<TurnstileResult>` (по умолчанию 4000 мс). Никогда не бросает.
+    - Выключено -> `disabled`, `fetch` не вызывается.
+    - Пустой или отсутствующий токен -> `failed`, `fetch` не вызывается.
+    - `POST https://challenges.cloudflare.com/turnstile/v0/siteverify`, тело `URLSearchParams`: `secret`, `response`, `remoteip` (только если IP задан и не `"unknown"`).
+    - Ответ `success: true` -> `ok`; `success: false` -> `failed`; HTTP не 2xx, ошибка сети, таймаут, невалидный JSON -> `unavailable` (`console.error`, секрет и токен не логировать).
+- Критерии приемки:
+  - `npm test` зеленый, `fetch` подменен: все пять исходов; тело запроса содержит `secret` и `response`; `remoteip` не передается при `"unknown"`.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### AS-06. Поле-ловушка и минимальное время заполнения
+
+- Статус: TODO
+- Цель: простые боты отсекаются без участия покупателя.
+- Файлы: `src/lib/antibot/form-guard.ts` (новый), `src/lib/antibot/form-guard.test.ts` (новый).
+- Входы и выходы:
+  - `MIN_FILL_MS = 4000`.
+  - `checkFormGuard({ honeypot?: string; fillMs?: number }): { ok: true } | { ok: false; reason: "HONEYPOT" | "TOO_FAST" }`. Непустой после `trim` `honeypot` -> `HONEYPOT`; `fillMs` отсутствует или меньше `MIN_FILL_MS` -> `TOO_FAST`. Ловушка проверяется первой.
+- Критерии приемки:
+  - `npm test` зеленый: пустая ловушка и 5000 мс проходят; ловушка `"x"`; пробелы в ловушке не считаются заполнением; 3999 мс; `fillMs` отсутствует.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### AS-07. Схема БД: черный список номеров и флаг непроверенного адреса
+
+- Статус: TODO
+- Цель: в БД есть таблица заблокированных номеров и отметка заказа, адрес которого НП не подтвердила.
+- Файлы: `prisma/schema.prisma`, `prisma/migrations/20261123180000_add_checkout_antifraud/migration.sql` (новый).
+- Входы и выходы:
+  - `schema.prisma`: в `Order` добавить `addressUnverified Boolean @default(false)` с комментарием (НП не ответила при оформлении, адрес уточняется звонком). Новая модель с комментарием (номера, с которых наложенный платеж недоступен):
+    `model BlockedPhone { id String @id @default(cuid()); phone String @unique (380XXXXXXXXX); reason String?; createdAt DateTime @default(now()) }`.
+  - `migration.sql` пишется руками (как `20261123120000_add_order_attribution`), `prisma migrate dev` НЕ запускать. Содержимое ровно: `ALTER TABLE "Order" ADD COLUMN "addressUnverified" BOOLEAN NOT NULL DEFAULT false;`, `CREATE TABLE "BlockedPhone"` с колонками `"id" TEXT NOT NULL`, `"phone" TEXT NOT NULL`, `"reason" TEXT`, `"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`, `CONSTRAINT "BlockedPhone_pkey" PRIMARY KEY ("id")`, и `CREATE UNIQUE INDEX "BlockedPhone_phone_key" ON "BlockedPhone"("phone");`.
+  - `npx prisma generate` выполнить. Миграцию на БД исполнитель не накатывает: это делает оркестратор после подтверждения владельца, что бэкап сделан (`npm run prisma:deploy`), затем проверка `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script` печатает пустую миграцию.
+- Критерии приемки:
+  - `npx prisma validate` без ошибок, `npx prisma generate` без ошибок.
+  - `grep -ci "drop\|delete\|truncate" prisma/migrations/20261123180000_add_checkout_antifraud/migration.sql` печатает 0.
+  - `git status --short prisma/migrations` показывает одну новую папку.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### AS-08. API черного списка в админке
+
+- Статус: TODO
+- Цель: админка может заблокировать, разблокировать и показать список номеров.
+- Файлы: `src/app/api/admin/blocked-phones/route.ts` (новый), `src/app/api/admin/blocked-phones/[phone]/route.ts` (новый).
+- Входы и выходы:
+  - Защита уже есть: `src/middleware.ts` закрывает `/api/admin/*` (без cookie 401). Дополнительной авторизации не писать.
+  - `GET /api/admin/blocked-phones` -> 200 `[{ phone, reason, createdAt }]`, новые сверху.
+  - `POST /api/admin/blocked-phones`, тело Zod `{ phone: string; reason?: string (trim, max 200) }`. Номер через `normalizeUaPhone` (AS-01); `null` -> 400 `{ error: "Некоректний номер телефону" }`. `upsert` по `phone` (повторная блокировка обновляет причину). Ответ 201 `{ phone, reason }`. Невалидный JSON -> 400.
+  - `DELETE /api/admin/blocked-phones/[phone]`: параметр через `normalizeUaPhone`; `null` -> 400. Удаление одной строки `prisma.blockedPhone.delete({ where: { phone } })` (это действие клиентки, разрешено; `deleteMany` не использовать). Записи нет (P2025) -> 200 `{ ok: true }` (идемпотентно). Иначе 200 `{ ok: true }`.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+  - `grep -n "deleteMany" src/app/api/admin/blocked-phones -r` ничего не выводит.
+  - При запущенном сервере без cookie `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/admin/blocked-phones` печатает `401`.
+  - Ручная проверка оркестратором после наката миграции AS-07: войти в админку, через AS-09 заблокировать и разблокировать номер.
+- Модель: sonnet
+- Зависимости: AS-01, AS-07.
+
+### AS-09. Кнопка блокировки в карточке заказа и предупреждение об адресе
+
+- Статус: TODO
+- Цель: клиентка одним нажатием блокирует номер подозрительного заказа и видит, если адрес не был проверен.
+- Файлы: `src/components/admin/BlockPhoneButton.tsx` (новый), `src/app/(admin)/admin/orders/[id]/page.tsx`.
+- Входы и выходы:
+  - `BlockPhoneButton` (клиентский): пропсы `{ phone: string; blocked: boolean; reason?: string | null }` (`phone` в виде `380XXXXXXXXX`).
+    - Не заблокирован: кнопка "Заблокувати номер". Нажатие показывает поле "Причина (необов'язково)" (до 200 символов) и кнопки "Заблокувати" и "Скасувати". "Заблокувати" -> `POST /api/admin/blocked-phones`, затем `router.refresh()`.
+    - Заблокирован: метка "Номер заблоковано" (и причина, если есть) и кнопка "Розблокувати" -> `window.confirm("Розблокувати цей номер?")` -> `DELETE /api/admin/blocked-phones/<phone>`, затем `router.refresh()`.
+    - Под кнопкой мелкий текст: "З заблокованого номера не можна оформити замовлення з накладеним платежем." Ошибка запроса: короткий текст "Не вдалося зберегти. Спробуйте ще раз."
+  - Страница заказа: `normalizeUaPhone(order.phone)`; если `null` (старый заказ с нестандартным номером) - кнопку не показывать. Иначе `prisma.blockedPhone.findUnique({ where: { phone } })` и рядом с телефоном вывести `BlockPhoneButton`.
+  - Если `order.addressUnverified`: заметный блок (желтый фон) над адресом: "Адресу доставки не вдалося перевірити автоматично. Уточніть місто і відділення, коли телефонуватимете покупцю."
+  - Другие части страницы не менять.
+- Критерии приемки:
+  - `БАЗА` зеленая, `npm run build` проходит, `ТИРЕ` печатает 0.
+  - `grep -n "BlockPhoneButton\|addressUnverified" "src/app/(admin)/admin/orders/[id]/page.tsx"` находит обе вещи.
+  - Ручная проверка оркестратором после наката миграции: заблокировать номер в карточке заказа, метка появилась, разблокировать, метка исчезла.
+- Модель: sonnet
+- Зависимости: AS-08.
+
+### AS-10. Страница "Заблоковані номери" в админке
+
+- Статус: TODO
+- Цель: клиентка видит все заблокированные номера в одном месте, может снять блокировку или добавить номер вручную.
+- Файлы: `src/app/(admin)/admin/blocked-phones/page.tsx` (новый), `src/components/admin/BlockedPhoneAddForm.tsx` (новый), `src/app/(admin)/admin/layout.tsx`.
+- Входы и выходы:
+  - Меню: пункт `{ href: "/admin/blocked-phones", label: "Заблоковані номери" }` сразу после "Замовлення".
+  - Страница (серверная, `export const dynamic = "force-dynamic"`): заголовок "Заблоковані номери", одна строка пояснения "З цих номерів не можна оформити замовлення з накладеним платежем. Оплата карткою для них доступна." Таблица: номер (`formatUaPhone`), причина (или "-"), дата блокировки (`DD.MM.YYYY`), `BlockPhoneButton` (AS-09) с `blocked`. Пустой список: "Заблокованих номерів немає."
+  - `BlockedPhoneAddForm` (клиентский) над таблицей: поля "Номер телефону" и "Причина (необов'язково)", кнопка "Заблокувати"; `POST /api/admin/blocked-phones`; при 400 показать текст ошибки из ответа; при успехе очистить поля и `router.refresh()`.
+- Критерии приемки:
+  - `БАЗА` зеленая, `npm run build` проходит и в выводе есть маршрут `/admin/blocked-phones`, `ТИРЕ` печатает 0.
+  - `grep -n "Заблоковані номери" "src/app/(admin)/admin/layout.tsx"` находит строку.
+- Модель: haiku
+- Зависимости: AS-09.
+
+### AS-11. Подключить защиту к POST /api/orders
+
+- Статус: TODO
+- Цель: сервер применяет все слои защиты в правильном порядке и отвечает кодами, которые понимает чекаут.
+- Файлы: `src/app/api/orders/route.ts`.
+- Входы и выходы:
+  - Порядок проверок (существующие шаги не убирать):
+    1. Rate limit по IP (как есть), JSON, `createOrderSchema` (как есть).
+    2. `checkFormGuard({ honeypot: data.website, fillMs: data.fillMs })` (AS-06). Отказ -> 400 `{ error, code: "CHECK_FAILED" }`, `console.warn` с причиной, без персональных данных.
+    3. `verifyTurnstileToken(data.turnstileToken, getClientIp(request))` (AS-05): `failed` -> 400 `CHECK_FAILED`; `unavailable` -> `console.error` и продолжить; `ok`/`disabled` -> продолжить.
+    4. Проверка выключенной карты (как есть).
+    5. Варианты и `buildOrderItems` (как есть).
+    6. Только для `CASH_ON_DELIVERY`: параллельно `prisma.blockedPhone.findUnique({ where: { phone } })` и `prisma.order.count({ where: { paymentMethod: "CASH_ON_DELIVERY", status: "NEW", phone: { in: phoneLookupVariants(phone) }, createdAt: { gte: new Date(Date.now() - COD_WINDOW_MS) } } })`; затем `evaluateCod({ pairs: countPairs(orderItems), pendingCodOrders, isBlocked })` (AS-03). Отказ -> 422 `{ error: getCheckoutErrorMessage(code, { onlineEnabled: isOnlinePaymentEnabled() }), code }`, где `code = codReasonToCode(reason)`; `console.info` с причиной и маской номера (`380*****4567`).
+    7. `verifyNovaPoshtaAddress(shippingCityRef, shippingWarehouseRef)` (AS-04) для любых способов оплаты: `invalid` -> 400 `{ error: <ADDRESS_INVALID>, code: "ADDRESS_INVALID" }`; `unavailable` -> продолжить с `addressUnverified = true`.
+    8. Создание заказа: `phone: "+" + phone` (схема уже вернула `380XXXXXXXXX`), `addressUnverified`. Поля `website`, `fillMs`, `turnstileToken` в заказ не попадают.
+  - Тексты всех новых ответов только через `getCheckoutErrorMessage` (AS-03). Остальное поведение (201, 409 по товарам, 502 по оплате, Telegram) не менять.
+- Критерии приемки:
+  - `БАЗА` зеленая, `npm run build` проходит, `ТИРЕ` печатает 0.
+  - `npm run smoke` при запущенном сервере проходит (тело `{}` все еще 400).
+  - При запущенном сервере с телом `B='{"customerName":"Марія Іваненко","phone":"0501234567","email":"","shippingCity":"Харків","shippingCityRef":"00000000-0000-0000-0000-000000000000","shippingWarehouse":"Відділення 1","shippingWarehouseRef":"00000000-0000-0000-0000-000000000000","paymentMethod":"CASH_ON_DELIVERY","comment":"","items":[{"variantId":"x","quantity":1}],"website":"spam","fillMs":10000}'` команда `curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d "$B" | grep -c CHECK_FAILED` печатает 1; то же с `"website":""` и `"fillMs":100` печатает 1.
+  - Сервер, запущенный с `TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA`, на тело с `"website":""`, `"fillMs":10000`, `"turnstileToken":"x"` отвечает `CHECK_FAILED`.
+  - Проверки лимитов, блокировки и адреса на реальных заказах проходит человек по `docs/acceptance.md` (AS-15): они пишут в БД.
+- Модель: sonnet
+- Зависимости: AS-02, AS-03, AS-04, AS-05, AS-06, AS-07.
+
+### AS-12. Чекаут: поля, ловушка, время заполнения, понятные отказы
+
+- Статус: TODO
+- Цель: честная покупательница видит понятные подсказки и всегда получает путь к заказу через менеджера; конкурент не узнает, какое правило сработало.
+- Файлы: `src/app/(public)/checkout/page.tsx`, `src/components/checkout/CheckoutBlockedNotice.tsx` (новый), `src/lib/site-config.ts`.
+- Входы и выходы:
+  - `site-config.ts`: добавить `viberUrl: "viber://chat?number=%2B380667901044"` (тот же номер, Viber на нем указан на сайте).
+  - `CheckoutBlockedNotice` пропсы `{ message: string }`: блок с текстом и тремя ссылками-кнопками "Написати в Telegram" (`SITE.telegramUrl`), "Написати у Viber" (`SITE.viberUrl`), "Зателефонувати" (`SITE.phoneHref`, рядом `SITE.phoneDisplay`). Стиль как у прочих блоков чекаута.
+  - Состояние формы типизировать `CheckoutFormInput` (AS-02). Атрибуты полей: имя `autoComplete="name"`, `maxLength={60}`; телефон `type="tel"`, `inputMode="tel"`, `autoComplete="tel"`, `maxLength={20}`, плейсхолдер `050 123 45 67`; email `maxLength={100}`; комментарий `maxLength={500}`.
+  - Ловушка: отдельное состояние, `input name="website"`, `tabIndex={-1}`, `autoComplete="off"`, обертка `aria-hidden="true"` вне экрана (`absolute -left-[9999px] h-px w-px overflow-hidden`), не `display: none`. Значение отправлять как `website`.
+  - Время: `useRef` с `Date.now()` при первом показе формы, в теле `fillMs: Date.now() - start`.
+  - Пары: `totalPairs` = сумма `quantity` корзины. Если `totalPairs > COD_MAX_PAIRS` (AS-03): при включенной карте вариант "Накладений платіж" неактивен с подписью "Доступно для замовлень до 3 пар", выбрана карта; при выключенной карте вместо кнопки отправки показать `CheckoutBlockedNotice` с текстом `COD_TOO_MANY_PAIRS`.
+  - Ответ сервера с `code`:
+    - `COD_UNAVAILABLE`, `COD_TOO_MANY_PAIRS`: при включенной карте выбрать карту, скрыть вариант наложенного платежа до перезагрузки, показать текст из ответа; при выключенной карте показать `CheckoutBlockedNotice` с текстом из ответа и скрыть кнопку отправки.
+    - `ADDRESS_INVALID`: очистить выбранное отделение, ошибку показать под полем отделения.
+    - `CHECK_FAILED`: `CheckoutBlockedNotice` с текстом из ответа, кнопка отправки остается (после обновления страницы можно повторить).
+    - Без `code`: как сейчас.
+  - Корзину при любом отказе не очищать (как сейчас). Заменить длинные тире в файле `page.tsx` на дефисы.
+- Критерии приемки:
+  - `БАЗА` зеленая, `npm run build` проходит, `ТИРЕ` печатает 0.
+  - `grep -c -e $'\xe2\x80\x94' -e $'\xe2\x80\x93' "src/app/(public)/checkout/page.tsx"` печатает 0.
+  - `grep -n "website\|fillMs\|CheckoutBlockedNotice\|COD_MAX_PAIRS" "src/app/(public)/checkout/page.tsx"` находит все четыре.
+  - `grep -rn "Telegram чи Viber" "src/app/(public)/checkout/page.tsx" src/components/checkout` ничего не выводит (тексты только в `checkout-errors.ts`).
+  - Ручная проверка оркестратором: в корзине 4 пары при `NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED=false` - вместо кнопки блок с тремя контактами.
+- Модель: sonnet
+- Зависимости: AS-02, AS-03.
+
+### AS-13. Невидимый Cloudflare Turnstile на чекауте
+
+- Статус: TODO
+- Цель: бот без браузера не получит токен; живой покупатель ничего не замечает.
+- Файлы: `src/components/checkout/TurnstileWidget.tsx` (новый), `src/types/turnstile.d.ts` (новый), `src/app/(public)/checkout/page.tsx`.
+- Входы и выходы:
+  - `turnstile.d.ts`: объявление `window.turnstile` (`render`, `execute`, `reset`, `remove`) в объеме, который используется.
+  - `TurnstileWidget` (клиентский, `forwardRef`), ручка `{ getToken(): Promise<string | null>; reset(): void }`. Если `NEXT_PUBLIC_TURNSTILE_SITE_KEY` пустой: рендерит `null`, `getToken` сразу возвращает `null`, скрипт не грузится.
+  - Скрипт `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` через `next/script` (`afterInteractive`). Рендер в контейнер над кнопкой отправки с опциями `sitekey`, `action: "checkout"`, `execution: "execute"`, `appearance: "interaction-only"`, `language: "uk"`, колбэки `callback`, `error-callback`, `expired-callback`.
+  - `getToken()`: вызвать `turnstile.execute`, дождаться `callback` до 10 секунд; ошибка, таймаут, скрипт не загрузился -> `null`. Токен одноразовый: после каждой отправки (успех или ошибка) вызывать `reset()`.
+  - Чекаут: после клиентской валидации `const token = await turnstileRef.current?.getToken()`, в тело `turnstileToken: token ?? undefined`.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+  - `npm run build` проходит без переменной и с `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`.
+  - Ручная проверка оркестратором: сервер с `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` и `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, в DevTools запрос `/api/orders` содержит непустой `turnstileToken`, сервер не отвечает `CHECK_FAILED`. Тестовый заказ после проверки отменить в админке.
+- Модель: sonnet
+- Зависимости: AS-12.
+
+### AS-14. Telegram: отметка непроверенного адреса
+
+- Статус: TODO
+- Цель: клиентка сразу в Telegram видит, что адрес заказа надо уточнить.
+- Файлы: `src/lib/notify/telegram.ts`, `src/lib/notify/telegram.test.ts`.
+- Входы и выходы: в тип заказа для `formatNewOrderMessage` добавить `addressUnverified?: boolean`. Если `true`, после строки с адресом добавить строку "Увага: адресу не перевірено автоматично, уточніть місто і відділення". Иначе текст сообщения не меняется.
+- Критерии приемки:
+  - `npm test` зеленый: строка есть при `true`, нет при `false` и без поля; прежние тесты не меняются.
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### AS-15. Переменные окружения и документация защиты
+
+- Статус: TODO
+- Цель: владелец и клиентка знают, как включить Turnstile, как работает черный список и как проверить защиту руками.
+- Файлы: `.env.example`, `scripts/check-env.mjs`, `DEPLOY-CHECKLIST.md`, `CREDENTIALS.md`, `CLAUDE.md`, `docs/admin-guide.md`, `docs/acceptance.md`.
+- Входы и выходы:
+  - `.env.example`: `NEXT_PUBLIC_TURNSTILE_SITE_KEY=` и `TURNSTILE_SECRET_KEY=` с комментарием на украинском (пусто - захист вимкнено; `NEXT_PUBLIC_` вшивается при сборке, после изменения нужен Redeploy).
+  - `check-env.mjs`: оба пустые - предупреждение; задан только один из двух - ошибка ("Turnstile: задайте обидва ключі або жодного").
+  - `DEPLOY-CHECKLIST.md`: шаг "бэкап, затем `npm run prisma:deploy`" для миграции `add_checkout_antifraud`; переменные Turnstile для Production и Preview.
+  - `CREDENTIALS.md`: раздел "Cloudflare Turnstile": dash.cloudflare.com -> Turnstile -> Add widget, режим Invisible, домены (боевой и временный адрес Vercel), где взять Site Key и Secret Key, куда вставить.
+  - `CLAUDE.md`: в "Паттерни" один пункт "Захист чекауту" (слои, файлы `src/lib/phone.ts`, `src/lib/orders/cod-policy.ts`, `src/lib/checkout-errors.ts`, `src/lib/antibot/`, без ключей Turnstile вимкнено). Раздел "Рабочий процесс" не менять.
+  - `docs/admin-guide.md`: раздел "Заблоковані номери" простыми словами: зачем, как заблокировать из карточки заказа, как снять блокировку, что заблокированная покупательница все равно может оплатить картой и написать в Telegram/Viber; что значит желтая плашка "Адресу не вдалося перевірити".
+  - `docs/acceptance.md`: раздел "Защита чекаута" (на русском, с `[ ]`): третий заказ наложенным платежом с одного номера за сутки получает мягкий отказ с контактами; после перевода одного заказа в "Підтверджено" снова можно; 4 пары: отказ заранее на чекауте; заблокированный номер: тот же текст, что у лимита; разблокировка снимает отказ; `+380`, `380` и `0` одного номера считаются одним; поле-ловушка и быстрая отправка (через curl из AS-11) отклоняются; при выключенной карте покупатель видит кнопки Telegram, Viber, телефон и корзина сохраняется; все тестовые заказы отменить, тестовые номера разблокировать.
+- Критерии приемки:
+  - `grep -c "TURNSTILE" .env.example` печатает 2 или больше; `grep -c "Turnstile" CREDENTIALS.md DEPLOY-CHECKLIST.md` показывает не меньше 1 для каждого файла.
+  - `env -i PATH="$PATH" NEXT_PUBLIC_TURNSTILE_SITE_KEY=x node scripts/check-env.mjs | grep -c "Turnstile"` печатает 1 или больше.
+  - `grep -c "Заблоковані номери" docs/admin-guide.md` печатает 1 или больше; в `docs/acceptance.md` добавлено не меньше 8 пунктов `[ ]`.
+  - `ТИРЕ` печатает 0.
+- Модель: haiku
+- Зависимости: AS-10, AS-11, AS-13.
+
+---
+
 ## Делает человек (не задачи кода)
 
 Решения и покупки (владелец проекта):
@@ -728,6 +1034,8 @@
 - [ ] После приемки удалить тестовые заказы и демо-товары (удаление данных только вручную и после подтверждения, в админке).
 - [ ] Google Search Console: добавить сайт и sitemap.
 - [x] После 2026-11-16 сменить модель в `.claude/agents/architect.md` на `opus`.
+- [ ] Этап 8: перед накатом миграции AS-07 сделать бэкап БД в Supabase и сообщить оркестратору.
+- [ ] Этап 8: Cloudflare Turnstile. Создать бесплатный аккаунт Cloudflare (домен переносить не нужно), dash.cloudflare.com -> Turnstile -> Add widget, режим Invisible, домены: боевой домен и временный адрес Vercel. Вставить `NEXT_PUBLIC_TURNSTILE_SITE_KEY` и `TURNSTILE_SECRET_KEY` в Vercel (Production и Preview), затем Redeploy (публичный ключ вшивается при сборке). До этого шага защита Turnstile просто выключена, чекаут работает.
 
 Контент от клиентки:
 
