@@ -7,6 +7,7 @@ export const SITE = {
   description: "Жіноче взуття з натуральної шкіри. Власне виробництво, Харків, 15 років досвіду.",
   phoneDisplay: "066 790 10 44",
   phoneHref: "tel:+380667901044",
+  viberUrl: "viber://chat?number=%2B380667901044",
   telegramUrl: "https://t.me/+380667901044",
   instagramUrl: "https://www.instagram.com/la_mia_fortuna_shoes",
   instagramHandle: "@la_mia_fortuna_shoes",

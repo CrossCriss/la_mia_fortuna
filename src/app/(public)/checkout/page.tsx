@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format-price";
-import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/checkout-schema";
+import { checkoutFormSchema, type CheckoutFormInput } from "@/lib/checkout-schema";
+import { COD_MAX_PAIRS, countPairs } from "@/lib/orders/cod-policy";
+import { getCheckoutErrorMessage } from "@/lib/checkout-errors";
+import { CheckoutBlockedNotice } from "@/components/checkout/CheckoutBlockedNotice";
 import { formatVariantLabel } from "@/lib/color-print";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
 import type { PaymentInit } from "@/lib/payment/types";
@@ -14,7 +17,7 @@ import { track } from "@/lib/analytics/track";
 import { readAttribution } from "@/lib/analytics/attribution";
 
 // LiqPay-режим повертає пару data+signature, яку треба відправити POST-ом
-// на liqpay.ua (а не fetch — це має бути справжня навігація браузера).
+// на liqpay.ua (а не fetch - це має бути справжня навігація браузера).
 function submitPaymentForm(url: string, fields: Record<string, string>) {
   const form = document.createElement("form");
   form.method = "POST";
@@ -35,7 +38,7 @@ function submitPaymentForm(url: string, fields: Record<string, string>) {
 // NEXT_PUBLIC_ змінна вбудовується в бандл під час збірки.
 const isOnlinePaymentEnabled = process.env.NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED !== "false";
 
-const initialForm: CheckoutFormValues = {
+const initialForm: CheckoutFormInput = {
   customerName: "",
   phone: "",
   email: "",
@@ -47,20 +50,29 @@ const initialForm: CheckoutFormValues = {
   comment: "",
 };
 
-type FieldErrors = Partial<Record<keyof CheckoutFormValues, string>>;
+type FieldErrors = Partial<Record<keyof CheckoutFormInput, string>>;
 
 // Оформлення замовлення: 1 сторінка, без обов'язкової реєстрації (ТЗ §3).
-// Місто/відділення — автокомпліт Nova Poshta (CityWarehouseFields), оплата
-// карткою — реальний рахунок у активного провайдера (src/lib/payment).
+// Місто/відділення - автокомпліт Nova Poshta (CityWarehouseFields), оплата
+// карткою - реальний рахунок у активного провайдера (src/lib/payment).
 export default function CheckoutPage() {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
   const clear = useCartStore((state) => state.clear);
 
-  const [form, setForm] = useState<CheckoutFormValues>(initialForm);
+  const [form, setForm] = useState<CheckoutFormInput>(initialForm);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Поле-пастка для ботів: людина його не бачить і не заповнює.
+  const [website, setWebsite] = useState("");
+  // Відмови сервера з кодом: блок з контактами, прихований накладений платіж.
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  const [hideSubmit, setHideSubmit] = useState(false);
+  const [codHidden, setCodHidden] = useState(false);
+
+  // Час заповнення форми: відлік з першого показу форми (є товари в кошику).
+  const startedAt = useRef<number | null>(null);
 
   // begin_checkout: один раз, коли після гідратації persist-стору в кошику є товари
   const beginCheckoutSent = useRef(false);
@@ -79,24 +91,43 @@ export default function CheckoutPage() {
     });
   }, [items]);
 
+  useEffect(() => {
+    if (startedAt.current === null && items.length > 0) startedAt.current = Date.now();
+  }, [items]);
+
+  const totalPairs = useMemo(() => countPairs(items), [items]);
+  const tooManyForCod = totalPairs > COD_MAX_PAIRS;
+  const codUnavailable = tooManyForCod || codHidden;
+
+  // Накладений платіж недоступний, а карта увімкнена: перемикаємо на карту.
+  useEffect(() => {
+    if (codUnavailable && isOnlinePaymentEnabled) {
+      setForm((prev) => (prev.paymentMethod === "ONLINE_CARD" ? prev : { ...prev, paymentMethod: "ONLINE_CARD" }));
+    }
+  }, [codUnavailable]);
+
+  // Карта вимкнена, а замовлення завелике для накладеного платежу: тільки менеджер.
+  const tooManyBlocked = tooManyForCod && !isOnlinePaymentEnabled;
+
   const total = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]
   );
 
-  function updateField<K extends keyof CheckoutFormValues>(key: K, value: CheckoutFormValues[K]) {
+  function updateField<K extends keyof CheckoutFormInput>(key: K, value: CheckoutFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitError(null);
+    setBlockedMessage(null);
 
     const result = checkoutFormSchema.safeParse(form);
     if (!result.success) {
       const fieldErrors: FieldErrors = {};
       for (const issue of result.error.issues) {
-        const key = issue.path[0] as keyof CheckoutFormValues;
+        const key = issue.path[0] as keyof CheckoutFormInput;
         if (!fieldErrors[key]) fieldErrors[key] = issue.message;
       }
       setErrors(fieldErrors);
@@ -116,6 +147,8 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...result.data,
+          website,
+          fillMs: startedAt.current === null ? 0 : Math.min(Date.now() - startedAt.current, 86_400_000),
           attribution: readAttribution() ?? undefined,
           items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
         }),
@@ -123,7 +156,29 @@ export default function CheckoutPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? "Не вдалося оформити замовлення. Спробуйте ще раз.");
+        const message: string = data?.error ?? "Не вдалося оформити замовлення. Спробуйте ще раз.";
+        const code: string | undefined = data?.code;
+        if (code === "COD_UNAVAILABLE" || code === "COD_TOO_MANY_PAIRS") {
+          if (isOnlinePaymentEnabled) {
+            setCodHidden(true);
+            setForm((prev) => ({ ...prev, paymentMethod: "ONLINE_CARD" }));
+            setSubmitError(message);
+          } else {
+            setBlockedMessage(message);
+            setHideSubmit(true);
+          }
+          return;
+        }
+        if (code === "ADDRESS_INVALID") {
+          setForm((prev) => ({ ...prev, shippingWarehouse: "", shippingWarehouseRef: "" }));
+          setErrors((prev) => ({ ...prev, shippingWarehouseRef: message }));
+          return;
+        }
+        if (code === "CHECK_FAILED") {
+          setBlockedMessage(message);
+          return;
+        }
+        throw new Error(message);
       }
 
       const order: { orderNumber: string; paymentInit?: PaymentInit } = await response.json();
@@ -167,6 +222,8 @@ export default function CheckoutPage() {
           <Field label="Ім'я та прізвище" error={errors.customerName}>
             <input
               type="text"
+              autoComplete="name"
+              maxLength={60}
               value={form.customerName}
               onChange={(event) => updateField("customerName", event.target.value)}
               className={inputClass(errors.customerName)}
@@ -177,17 +234,21 @@ export default function CheckoutPage() {
           <Field label="Телефон" error={errors.phone}>
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={20}
               value={form.phone}
               onChange={(event) => updateField("phone", event.target.value)}
               className={inputClass(errors.phone)}
-              placeholder="+380501234567"
+              placeholder="050 123 45 67"
             />
           </Field>
 
           <Field label="Email (необов'язково)" error={errors.email}>
             <input
               type="email"
-              value={form.email}
+              maxLength={100}
+              value={form.email ?? ""}
               onChange={(event) => updateField("email", event.target.value)}
               className={inputClass(errors.email)}
               placeholder="mail@example.com"
@@ -211,7 +272,7 @@ export default function CheckoutPage() {
 
           <div>
             <p className="mb-2 text-sm font-medium text-neutral-700">Спосіб оплати</p>
-            <div className={isOnlinePaymentEnabled ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
+            <div className={isOnlinePaymentEnabled && !codHidden ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
               {isOnlinePaymentEnabled && (
                 <PaymentOption
                   label="Оплата карткою онлайн"
@@ -219,15 +280,19 @@ export default function CheckoutPage() {
                   onSelect={() => updateField("paymentMethod", "ONLINE_CARD")}
                 />
               )}
-              <PaymentOption
-                label="Накладений платіж"
-                selected={form.paymentMethod === "CASH_ON_DELIVERY"}
-                onSelect={() => updateField("paymentMethod", "CASH_ON_DELIVERY")}
-              />
+              {!(codHidden && isOnlinePaymentEnabled) && (
+                <PaymentOption
+                  label="Накладений платіж"
+                  selected={form.paymentMethod === "CASH_ON_DELIVERY"}
+                  disabled={codUnavailable && isOnlinePaymentEnabled}
+                  hint={tooManyForCod && isOnlinePaymentEnabled ? `Доступно для замовлень до ${COD_MAX_PAIRS} пар` : undefined}
+                  onSelect={() => updateField("paymentMethod", "CASH_ON_DELIVERY")}
+                />
+              )}
             </div>
             {form.paymentMethod === "CASH_ON_DELIVERY" && (
               <p className="mt-2 text-xs text-neutral-500">
-                За накладений платіж Нова Пошта стягує додаткову комісію за переказ коштів —
+                За накладений платіж Нова Пошта стягує додаткову комісію за переказ коштів -
                 вона оплачується окремо при отриманні.{isOnlinePaymentEnabled && " Оплата карткою онлайн без цієї комісії."}
               </p>
             )}
@@ -235,22 +300,45 @@ export default function CheckoutPage() {
 
           <Field label="Коментар до замовлення (необов'язково)">
             <textarea
-              value={form.comment}
+              value={form.comment ?? ""}
               onChange={(event) => updateField("comment", event.target.value)}
               rows={3}
+              maxLength={500}
               className={inputClass()}
             />
           </Field>
 
+          {/* Пастка для ботів: поза екраном, не display: none */}
+          <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(event) => setWebsite(event.target.value)}
+            />
+          </div>
+
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSubmitting ? "Оформлюємо…" : "Підтвердити замовлення"}
-          </button>
+          {blockedMessage && <CheckoutBlockedNotice message={blockedMessage} />}
+
+          {tooManyBlocked && !blockedMessage && (
+            <CheckoutBlockedNotice
+              message={getCheckoutErrorMessage("COD_TOO_MANY_PAIRS", { onlineEnabled: false })}
+            />
+          )}
+
+          {!hideSubmit && !tooManyBlocked && (
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-xl bg-accent py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? "Оформлюємо…" : "Підтвердити замовлення"}
+            </button>
+          )}
           <p className="text-xs text-neutral-500">
             Оформлюючи замовлення, ви погоджуєтесь з{" "}
             <Link href="/oferta" target="_blank" rel="noopener noreferrer" className="underline">
@@ -322,23 +410,30 @@ function PaymentOption({
   label,
   selected,
   onSelect,
+  disabled,
+  hint,
 }: {
   label: string;
   selected: boolean;
   onSelect: () => void;
+  disabled?: boolean;
+  hint?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
+      disabled={disabled}
       className={cn(
         "rounded-xl border px-4 py-3 text-left text-sm font-medium transition",
+        disabled && "cursor-not-allowed opacity-50",
         selected
           ? "border-accent bg-secondary/25 text-accent-dark"
           : "border-neutral-200 text-neutral-600 hover:border-accent/40"
       )}
     >
       {label}
+      {hint && <span className="mt-1 block text-xs font-normal text-neutral-500">{hint}</span>}
     </button>
   );
 }
