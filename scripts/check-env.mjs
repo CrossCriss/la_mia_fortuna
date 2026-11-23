@@ -75,6 +75,15 @@ if (isProd) {
   }
 }
 
+// Turnstile (захист чекауту): обидва ключі або жодного.
+const turnstileSiteKey = value("NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+const turnstileSecretKey = value("TURNSTILE_SECRET_KEY");
+if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) {
+  errors.push("Turnstile: задайте обидва ключі або жодного");
+} else if (!turnstileSiteKey) {
+  warnings.push("Turnstile не задано, захист чекауту від ботів вимкнено");
+}
+
 const mode = isProd ? " (режим --prod)" : "";
 
 if (errors.length === 0 && warnings.length === 0) {

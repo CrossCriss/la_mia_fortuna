@@ -89,3 +89,17 @@ Vercel (Settings -> Environment Variables) і в локальний `.env`. Ро
 Найшвидший шлях перевірити все вже зараз: Supabase (5 хв, безкоштовно) +
 Monobank тестовий токен (1 хв) + Nova Poshta ключ (2 хв) — жоден не потребує
 реальних грошей чи документів ФОП.
+
+## 8. Cloudflare Turnstile (захист чекауту від ботів)
+
+Turnstile - невидима капча від Cloudflare. Без неї сайт працює, але захист від ботів вимкнено.
+
+1. dash.cloudflare.com → Turnstile → **Add widget** (Додати віджет).
+2. Назва - будь-яка, наприклад назва магазину.
+3. Widget mode (режим) - **Invisible** (невидимий).
+4. Domains (домени): додати бойовий домен і тимчасову адресу Vercel (`<проєкт>.vercel.app`). Без доменів віджет на сайті не спрацює.
+5. Після створення відкрийте віджет. **Site Key** (публічний) → це `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. **Secret Key** (секретний) → це `TURNSTILE_SECRET_KEY`.
+6. Вставте обидва значення у Vercel → Settings → Environment Variables (Production і Preview). Для локальної перевірки - у `.env`. Потім зробіть Redeploy: Site Key вшивається при збірці.
+7. Задайте обидва ключі або жодного. Якщо задано тільки один, `npm run check:env` покаже помилку.
+
+Secret Key не публікувати, не вписувати в код і не надсилати в чат.

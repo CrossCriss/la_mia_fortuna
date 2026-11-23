@@ -58,6 +58,7 @@ npm run prisma:studio     # Prisma Studio
 - **Сповіщення (`src/lib/notify/telegram.ts`)** - нове замовлення і успішна оплата йдуть у Telegram-групу клієнтки через `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`. Без змінних сповіщення вимкнені, оформлення замовлення від цього не ламається.
 - **Rate limit (`src/lib/rate-limit.ts`)** - лічильник у пам'яті одного екземпляра (на Vercel не спільний). Основний захист - правило Rate Limiting у Vercel Firewall для `/api/orders` і `/api/admin/login`.
 - **GA4 / Meta Pixel (`src/lib/analytics/`, `src/components/analytics/`)** - реалізовано; скрипти вантажаться лише коли задано `NEXT_PUBLIC_GA4_ID` / `NEXT_PUBLIC_META_PIXEL_ID`. Підключати в останню чергу, коли сайт вже наповнений реальним контентом.
+- **Захист чекауту** - шари захисту (`src/lib/antibot/`), Cloudflare Turnstile (`src/lib/antibot/turnstile.ts`, `src/components/checkout/TurnstileWidget.tsx`; без ключів `NEXT_PUBLIC_TURNSTILE_SITE_KEY` і `TURNSTILE_SECRET_KEY` захист вимкнено), нормалізація телефону (`src/lib/phone.ts`), правила накладеного платежу і чорний список номерів (`src/lib/orders/cod-policy.ts`), тексти відмов (`src/lib/checkout-errors.ts`).
 - Плейсхолдерний текст на сторінках about/delivery/returns/contacts/privacy — позначайте банером `PlaceholderNotice` і коментарем у коді, поки не отримали реальний контент від клієнта.
 
 # Рабочий процесс

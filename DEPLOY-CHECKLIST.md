@@ -72,6 +72,8 @@ Production і Preview мають окремі змінні. Прод-`DATABASE_U
 | `NOVA_POSHTA_API_KEY` | кабінет Нової Пошти |
 | `TELEGRAM_BOT_TOKEN` | токен бота з @BotFather (`CREDENTIALS.md`, розділ "Telegram-бот"). Не публікувати |
 | `TELEGRAM_CHAT_ID` | ID Telegram-групи клієнтки, від'ємне число. Бот має бути в групі |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile, Site Key (`CREDENTIALS.md`, розділ 8). Порожньо - захист чекауту вимкнено. Production і Preview окремо. Вшивається при збірці: після зміни Redeploy |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile, Secret Key (`CREDENTIALS.md`, розділ 8). Тільки у Vercel, не публікувати. Задавати разом з `NEXT_PUBLIC_TURNSTILE_SITE_KEY` або не задавати |
 | `NEXT_PUBLIC_GA4_ID` | Measurement ID виду `G-XXXXXXXXXX`. Порожньо, доки немає ID. Після зміни - Redeploy |
 | `NEXT_PUBLIC_META_PIXEL_ID` | числовий ID пікселя Meta. Порожньо, доки немає ID. Після зміни - Redeploy |
 
@@ -79,8 +81,8 @@ Production і Preview мають окремі змінні. Прод-`DATABASE_U
 
 1. [ ] Створити prod-проєкт Supabase, bucket `product-images` → **Public**.
 2. [ ] Зробити бекап прод-БД (Supabase, план з бекапами) перед кожною міграцією.
-3. [ ] Накатити міграції на прод: `npm run prisma:deploy` (`prisma migrate deploy`)
-      з `DIRECT_URL` прод-БД. Тимчасово вказати прод-значення в `.env` або в
+3. [ ] Бекап (крок 2), потім накатити міграції на прод: `npm run prisma:deploy` (`prisma migrate deploy`)
+      з `DIRECT_URL` прод-БД. Серед них міграція `add_checkout_antifraud` (захист чекауту). Тимчасово вказати прод-значення в `.env` або в
       змінних оточення; після роботи повернути dev-значення, `.env` не комітити.
       Не запускати `npm run prisma:migrate` (це `migrate dev`).
 4. [ ] `npm run prisma:seed` проти прод-БД. Сід тільки додає відсутнє і нічого
