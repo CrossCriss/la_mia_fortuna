@@ -1,43 +1,54 @@
 import type { Metadata } from "next";
-import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
 
 export const metadata: Metadata = {
   title: "Доставка та оплата",
   alternates: { canonical: "/delivery" },
 };
 
-// ТИМЧАСОВИЙ ТЕКСТ для демонстрації клієнтці — уточнити реальні терміни,
-// вартість доставки та точні умови оплати.
 export default function DeliveryPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="font-display text-[36px] font-semibold text-ink">Доставка та оплата</h1>
-      <PlaceholderNotice />
 
-      <div className="space-y-6 text-sm leading-relaxed text-ink-soft">
-        <section>
-          <h2 className="mb-2 font-semibold text-ink">Доставка</h2>
-          <p>
-            Ми надсилаємо замовлення по всій Україні через Нову Пошту — у відділення або кур&apos;єром
-            за вказаною адресою. Термін доставки — зазвичай 1–3 робочі дні залежно від міста.
-          </p>
-          <p className="mt-2">
-            Вартість доставки розраховується Новою Поштою під час оформлення замовлення і
-            сплачується окремо від вартості товару.
-          </p>
-        </section>
+      <div className="space-y-4 text-sm leading-relaxed text-ink-soft">
+        <h2 className="pt-2 font-display text-[24px] font-semibold text-ink">Доставка</h2>
+        <p>
+          Доставляємо замовлення по всій Україні службою &quot;Нова Пошта&quot; у відділення або
+          поштомат, який ви оберете під час оформлення замовлення.
+        </p>
+        <p>
+          Після оформлення ми зв&apos;яжемося з вами, щоб підтвердити замовлення. Відправляємо
+          протягом 1-2 робочих днів після підтвердження. Доставка Новою Поштою зазвичай займає 1-3
+          дні залежно від міста.
+        </p>
+        <p>
+          Після відправки ми надішлемо вам номер ТТН, за яким можна відстежити посилку в застосунку
+          або на сайті Нової Пошти.
+        </p>
+        <p>
+          Вартість доставки розраховується за тарифами Нової Пошти і сплачується при отриманні
+          посилки окремо від вартості взуття.
+        </p>
 
-        <section>
-          <h2 className="mb-2 font-semibold text-ink">Оплата</h2>
-          <p>На сторінці оформлення замовлення доступні способи оплати:</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>Онлайн-оплата карткою;</li>
-            <li>
-              Накладений платіж — оплата при отриманні на відділенні Нової Пошти. За цей спосіб
-              Нова Пошта стягує додаткову комісію за переказ коштів.
-            </li>
-          </ul>
-        </section>
+        <h2 className="pt-2 font-display text-[24px] font-semibold text-ink">Оплата</h2>
+        <p>Під час оформлення замовлення доступні такі способи оплати:</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <span className="font-medium">Оплата карткою онлайн</span>: Visa або
+            Mastercard. Платіж проходить на захищеній сторінці банку.
+          </li>
+          <li>
+            <span className="font-medium">Накладений платіж</span>: оплата при отриманні
+            у відділенні Нової Пошти. За цей спосіб Нова Пошта додатково стягує комісію за переказ
+            коштів, її сплачує отримувач.
+          </li>
+        </ul>
+
+        <h2 className="pt-2 font-display text-[24px] font-semibold text-ink">Отримання</h2>
+        <p>
+          Перед оплатою ви можете оглянути посилку у відділенні Нової Пошти. Якщо виникнуть питання
+          щодо моделі чи розміру, напишіть нам у Viber або Telegram, ми з радістю допоможемо.
+        </p>
       </div>
     </div>
   );
