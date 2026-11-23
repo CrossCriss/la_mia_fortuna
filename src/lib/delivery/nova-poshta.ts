@@ -37,7 +37,8 @@ function getApiKey() {
 async function callNovaPoshta<T>(
   modelName: string,
   calledMethod: string,
-  methodProperties: Record<string, unknown>
+  methodProperties: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<NovaPoshtaResponse<T>> {
   const response = await fetch(NOVA_POSHTA_API_URL, {
     method: "POST",
@@ -49,6 +50,7 @@ async function callNovaPoshta<T>(
       methodProperties,
     }),
     cache: "no-store",
+    signal,
   });
 
   if (!response.ok) {
@@ -116,4 +118,55 @@ export async function getNovaPoshtaWarehouses(
     shortAddress: warehouse.ShortAddress,
     number: warehouse.Number,
   }));
+}
+
+export type AddressCheck = "valid" | "invalid" | "unavailable";
+
+type WarehouseRefRecord = { Ref?: string; CityRef?: string };
+
+// Чиста функція рішення: відповідь НП на getWarehouses з фільтром по Ref і
+// CityRef -> чи існує відділення в обраному місті. Якщо НП не змогла
+// відповісти або фільтр не спрацював - "unavailable", чесного покупця не блокуємо.
+export function decideAddressCheck(
+  response: { success: boolean; data?: WarehouseRefRecord[] } | null | undefined,
+  cityRef: string,
+  warehouseRef: string
+): AddressCheck {
+  if (!response || !response.success || !Array.isArray(response.data)) return "unavailable";
+  if (response.data.length === 0) return "invalid";
+
+  const match = response.data.find((record) => record.Ref === warehouseRef);
+  if (!match) return "unavailable";
+  return match.CityRef === cityRef ? "valid" : "invalid";
+}
+
+// Серверна перевірка, що відділення існує і належить місту. Ніколи не кидає
+// виняток: будь-яка помилка зв'язку = "unavailable".
+export async function verifyNovaPoshtaAddress(
+  cityRef: string,
+  warehouseRef: string,
+  options?: { timeoutMs?: number }
+): Promise<AddressCheck> {
+  try {
+    if (!process.env.NOVA_POSHTA_API_KEY || !cityRef || !warehouseRef) {
+      if (!process.env.NOVA_POSHTA_API_KEY) {
+        console.error("Nova Poshta: NOVA_POSHTA_API_KEY не задано, адресу не перевірено");
+      }
+      return "unavailable";
+    }
+
+    const response = await callNovaPoshta<WarehouseRefRecord>(
+      "AddressGeneral",
+      "getWarehouses",
+      { Ref: warehouseRef, CityRef: cityRef, Limit: "50" },
+      AbortSignal.timeout(options?.timeoutMs ?? 3000)
+    );
+    return decideAddressCheck(response, cityRef, warehouseRef);
+  } catch (error) {
+    console.error(
+      "Nova Poshta: не вдалося перевірити адресу:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return "unavailable";
+  }
 }
