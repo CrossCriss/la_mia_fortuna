@@ -5,9 +5,9 @@ const validOrder = {
   customerName: "Іван Петренко",
   phone: "0501234567",
   shippingCity: "Київ",
-  shippingCityRef: "city-ref",
+  shippingCityRef: "8d5a980d-391c-11dd-90d9-001a92567626",
   shippingWarehouse: "Відділення 1",
-  shippingWarehouseRef: "wh-ref",
+  shippingWarehouseRef: "1ec09d88-e1c2-11e3-8c4a-0050568002cf",
   paymentMethod: "CASH_ON_DELIVERY" as const,
   items: [{ variantId: "v1", quantity: 1 }],
 };
@@ -17,12 +17,70 @@ describe("createOrderSchema", () => {
     expect(createOrderSchema.safeParse(validOrder).success).toBe(true);
   });
 
-  it.each(["0501234567", "+380501234567", "380501234567"])("приймає телефон %s", (phone) => {
+  it.each(["0501234567", "+380501234567", "380501234567", "+38 050 123 45 67"])("приймає телефон %s", (phone) => {
     expect(createOrderSchema.safeParse({ ...validOrder, phone }).success).toBe(true);
   });
 
-  it.each(["12345", "05012345", "+1501234567", "abc"])("відхиляє телефон %s", (phone) => {
+  it.each(["12345", "05012345", "+1501234567", "abc", "0441234567", "0201234567"])("відхиляє телефон %s", (phone) => {
     expect(createOrderSchema.safeParse({ ...validOrder, phone }).success).toBe(false);
+  });
+
+  it("нормалізує телефон до 380XXXXXXXXX", () => {
+    const r = createOrderSchema.safeParse({ ...validOrder, phone: "+38 050 123 45 67" });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.phone).toBe("380501234567");
+  });
+
+  it.each(["Марія Іваненко", "Анна-Марія О'Коннор", "Olena Kovalenko", "Наталья Сергеевна Мельникова"])(
+    "приймає ім'я %s",
+    (customerName) => {
+      expect(createOrderSchema.safeParse({ ...validOrder, customerName }).success).toBe(true);
+    },
+  );
+
+  it.each([
+    "Марія",
+    "asdf",
+    "Марія 123",
+    "М І",
+    "Марія Іванівна Петрівна Коваленко",
+    "Марія Іваненко" + "а".repeat(50),
+    "",
+  ])("відхиляє ім'я %s", (customerName) => {
+    expect(createOrderSchema.safeParse({ ...validOrder, customerName }).success).toBe(false);
+  });
+
+  it("відхиляє ім'я довше за 60 символів", () => {
+    const customerName = `${"а".repeat(29)} ${"б".repeat(29)} ${"в".repeat(5)}`;
+    expect(customerName.length).toBe(65);
+    expect(createOrderSchema.safeParse({ ...validOrder, customerName }).success).toBe(false);
+  });
+
+  it("нормалізує апострофи і пробіли в імені", () => {
+    const r = createOrderSchema.safeParse({ ...validOrder, customerName: "  Олена   О’Коннор " });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.customerName).toBe("Олена О'Коннор");
+    for (const ap of ["ʼ", "`"]) {
+      const r2 = createOrderSchema.safeParse({ ...validOrder, customerName: `Олена О${ap}Коннор` });
+      expect(r2.success && r2.data.customerName).toBe("Олена О'Коннор");
+    }
+  });
+
+  it("відхиляє Ref не у форматі GUID", () => {
+    expect(createOrderSchema.safeParse({ ...validOrder, shippingCityRef: "city-ref" }).success).toBe(false);
+    expect(createOrderSchema.safeParse({ ...validOrder, shippingWarehouseRef: "wh-ref" }).success).toBe(false);
+  });
+
+  it("коментар: 500 символів проходить, 501 ні", () => {
+    expect(createOrderSchema.safeParse({ ...validOrder, comment: "а".repeat(500) }).success).toBe(true);
+    expect(createOrderSchema.safeParse({ ...validOrder, comment: "а".repeat(501) }).success).toBe(false);
+  });
+
+  it("website, fillMs, turnstileToken необов'язкові і приймаються", () => {
+    expect(createOrderSchema.safeParse(validOrder).success).toBe(true);
+    expect(
+      createOrderSchema.safeParse({ ...validOrder, website: "", fillMs: 5000, turnstileToken: "tok" }).success,
+    ).toBe(true);
   });
 
   it("відхиляє порожній items", () => {
