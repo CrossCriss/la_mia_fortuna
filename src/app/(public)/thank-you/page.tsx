@@ -3,6 +3,7 @@ import { getPublicOrderSummary } from "@/lib/orders/public-order";
 import type { PublicOrderSummary } from "@/lib/orders/public-order";
 import { formatPrice } from "@/lib/format-price";
 import { SITE } from "@/lib/site-config";
+import { TrackPurchase } from "@/components/analytics/TrackPurchase";
 
 // Статус замовлення читається з БД при кожному відкритті (плюс звірка оплати Monobank).
 export const dynamic = "force-dynamic";
@@ -73,9 +74,23 @@ export default async function ThankYouPage({
   }
 
   const { text, needsHelp } = statusMessage(summary);
+  // Purchase лише за реальне замовлення: післяплата або підтверджена оплата карткою.
+  const shouldTrackPurchase = summary.paymentKind === "COD" || summary.paymentStatus === "PAID";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+      {shouldTrackPurchase && (
+        <TrackPurchase
+          orderNumber={summary.orderNumber}
+          value={summary.total}
+          items={summary.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          }))}
+        />
+      )}
       <h1 className="text-2xl font-semibold md:text-3xl">Дякуємо за замовлення!</h1>
       <p className="mt-4 text-neutral-600">
         Номер замовлення: <span className="font-medium text-neutral-900">{summary.orderNumber}</span>
