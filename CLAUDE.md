@@ -1,8 +1,6 @@
-# E-commerce Starter Template
+# La Mia Fortuna Shoes
 
-Каркас інтернет-магазину (спочатку витягнутий з проекту "Gola Pravda"). Каталог з категоріями/розмірами/кольорами і залишками по варіантах, кошик, чекаут без реєстрації (особистого кабінету клієнта в цьому проекті немає), адмінка для керування товарами/категоріями/замовленнями. UI — українською (легко перекласти, текст не зашитий у логіку).
-
-**Це шаблон для нових клієнтських проектів.** Перед стартом нового магазину пройдіться по `SETUP-CHECKLIST.md` — там весь список того, що треба перейменувати/налаштувати під конкретного клієнта.
+Інтернет-магазин жіночого взуття (Харків). Каталог з категоріями, розмірами, кольорами і залишками по варіантах, кошик, чекаут без реєстрації, адмінка для товарів, категорій і замовлень. UI українською.
 
 ## Стек
 
@@ -19,9 +17,13 @@
 npm run dev              # локальний запуск (next dev)
 npm run build             # production build
 npm run typecheck         # tsc --noEmit
+npm test                  # тести (vitest)
+npm run check:env        # перевірка змінних .env (з --prod - додаткові перевірки продакшену)
+npm run smoke            # дымова перевірка розгорнутого сайту (адреса в BASE_URL)
 
 npm run prisma:migrate    # накатити міграції (prisma migrate dev)
-npm run prisma:seed       # засіяти БД (категорії, розміри, кольори, демо-товари, admin-акаунт, відгуки)
+npm run prisma:deploy     # накатити міграції на прод (prisma migrate deploy)
+npm run prisma:seed       # засіяти БД (категорії, сезони, розміри, кольори, адмін-акаунт, плейсхолдер-відгуки); тільки додає
 npm run prisma:studio     # Prisma Studio
 ```
 
@@ -32,9 +34,9 @@ npm run prisma:studio     # Prisma Studio
 ## Карта ключових папок
 
 - `prisma/schema.prisma` — уся схема БД (Category, Product, ProductVariant, Size, Color, Order, AdminUser тощо; особистого кабінету клієнта немає)
-- `prisma/seed.ts` — сідування (ідемпотентне, очищує й пересоздає довідники/демо-товари) — **тут демо-категорії/товари, які треба замінити реальними даними клієнта**
+- `prisma/seed.ts` - сідування: лише додає відсутнє (upsert), нічого не видаляє. Створює категорії (3 сезонні розділи з підкатегоріями, "Новинки", "Розпродаж"), розміри 36-41, 4 кольори, 3 плейсхолдер-відгуки, налаштування головної (якщо їх ще немає), адмін-акаунт (пароль оновлюється з `ADMIN_PASSWORD` при кожному сіді). Товарів не створює: асортимент вносить клієнтка в адмінці
 - `src/app/(public)/` — публічний сайт: `catalog/`, `catalog/[categorySlug]/`, `product/[productSlug]/`, `search/` (пошук за назвою товару + категорією), `cart/`, `checkout/`, `thank-you/`, статичні сторінки (about/delivery/returns/contacts/privacy)
-- `src/app/(admin)/admin/` — адмінка (products/categories/orders/promocodes), захищена `src/middleware.ts`
+- `src/app/(admin)/admin/` - адмінка (products/categories/orders; promocodes - сторінка `/admin/promocodes` є в коді, прихована з меню), захищена `src/middleware.ts`
 - `src/app/(admin-auth)/admin/login/` — сторінка логіну, окрема route group, щоб не успадковувати layout адмінки
 - `src/app/api/` — route handlers (публічні `products`/`categories`/`orders`, адмінські `api/admin/*`, `api/admin/upload` для фото)
 - `src/components/catalog/` — `ProductCard`, `ProductGrid`, `CategoryGrid`, `CatalogFilters`
@@ -51,9 +53,11 @@ npm run prisma:studio     # Prisma Studio
 
 ## Патерни, які варто зберегти при кастомізації
 
-- **Оплата (`src/lib/payment/`)** — реальна інтеграція LiqPay й Monobank Acquiring, активний провайдер вибирається `PAYMENT_PROVIDER` в `.env` (`src/lib/payment/index.ts`). На чекауті клієнт бачить лише "Оплата карткою онлайн" / "Накладений платіж" (`ONLINE_CARD`/`CASH_ON_DELIVERY`) — яка саме платіжка це обробить, вирішує сервер в `POST /api/orders`, не клієнт. Вебхуки (`/api/payments/liqpay/callback`, `/api/payments/monobank/webhook`) самі підтягують `paymentStatus`; `OrderStatusControl` лишається як ручний override, якщо вебхук не дійшов. Без `MONOBANK_TOKEN`/`LIQPAY_PUBLIC_KEY`+`LIQPAY_PRIVATE_KEY` в `.env` оплата карткою впаде з 502 — підставляються в окремому кроці, коли клієнт дає реальні ключі.
+- **Оплата (`src/lib/payment/`)** - реальна інтеграція LiqPay й Monobank Acquiring, активний провайдер вибирається `PAYMENT_PROVIDER` в `.env` (`src/lib/payment/index.ts`). На чекауті клієнт бачить лише "Оплата карткою онлайн" / "Накладений платіж" (`ONLINE_CARD`/`CASH_ON_DELIVERY`) - яка саме платіжка це обробить, вирішує сервер в `POST /api/orders`, не клієнт. Вебхуки (`/api/payments/liqpay/callback`, `/api/payments/monobank/webhook`) самі підтягують `paymentStatus`; `OrderStatusControl` лишається як ручний override, якщо вебхук не дійшов. Без `MONOBANK_TOKEN`/`LIQPAY_PUBLIC_KEY`+`LIQPAY_PRIVATE_KEY` в `.env` оплата карткою впаде з 502 - підставляються в окремому кроці, коли клієнт дає реальні ключі. Прапорець `NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED` (`src/lib/payment/index.ts`) ховає оплату карткою на чекауті; `"false"` означає лише накладений платіж. Значення вшивається при збірці, тому зміна потребує Redeploy.
 - **Доставка (`src/lib/delivery/nova-poshta.ts`)** — автокомпліт міста/відділення на чекауті (`CityWarehouseFields`) через реальний Nova Poshta API; потребує `NOVA_POSHTA_API_KEY`. Розрахунок вартості доставки і генерація ТТН — свідомо поза межами MVP (ТТН адмін створює вручну в кабінеті Nova Poshta й вписує номер в `OrderStatusControl`).
-- **GA4 / Meta Pixel** — підключати в останню чергу, коли сайт вже наповнений реальним контентом.
+- **Сповіщення (`src/lib/notify/telegram.ts`)** - нове замовлення і успішна оплата йдуть у Telegram-групу клієнтки через `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`. Без змінних сповіщення вимкнені, оформлення замовлення від цього не ламається.
+- **Rate limit (`src/lib/rate-limit.ts`)** - лічильник у пам'яті одного екземпляра (на Vercel не спільний). Основний захист - правило Rate Limiting у Vercel Firewall для `/api/orders` і `/api/admin/login`.
+- **GA4 / Meta Pixel (`src/lib/analytics/`, `src/components/analytics/`)** - реалізовано; скрипти вантажаться лише коли задано `NEXT_PUBLIC_GA4_ID` / `NEXT_PUBLIC_META_PIXEL_ID`. Підключати в останню чергу, коли сайт вже наповнений реальним контентом.
 - Плейсхолдерний текст на сторінках about/delivery/returns/contacts/privacy — позначайте банером `PlaceholderNotice` і коментарем у коді, поки не отримали реальний контент від клієнта.
 
 # Рабочий процесс
