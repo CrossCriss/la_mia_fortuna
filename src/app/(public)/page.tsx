@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { Hero } from "@/components/home/Hero";
 import { ContactFloatingBar } from "@/components/home/ContactFloatingBar";
@@ -12,6 +13,7 @@ import { REVIEWS } from "@/content/reviews";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { getHomeBadges } from "@/lib/home-badges";
 import { getSiteSettings } from "@/lib/site-settings";
+import { isOptimizableImage } from "@/lib/image";
 
 export const dynamic = "force-dynamic";
 
@@ -152,12 +154,15 @@ export default async function HomePage() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {homeCategoryTiles.map((category) => (
                 <Link key={category.id} href={category.href} className="group flex flex-col gap-3">
-                  <div className="h-[220px] overflow-hidden bg-secondary/25 transition-opacity group-hover:opacity-90 lg:h-[340px]">
+                  <div className="relative h-[220px] overflow-hidden bg-secondary/25 transition-opacity group-hover:opacity-90 lg:h-[340px]">
                     {category.imageUrl && (
-                      <img
+                      <Image
                         src={category.imageUrl}
                         alt={category.name}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        unoptimized={!isOptimizableImage(category.imageUrl)}
+                        className="object-cover transition duration-300 group-hover:scale-105"
                       />
                     )}
                   </div>

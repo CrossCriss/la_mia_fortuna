@@ -1,14 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
+import NextImage from "next/image";
 import { cn } from "@/lib/utils";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
+import { isOptimizableImage } from "@/lib/image";
 
-type Image = { url: string; alt: string | null };
+type GalleryImage = { url: string; alt: string | null };
 
 const SWIPE_THRESHOLD_PX = 40;
 
-export function ProductGallery({ images }: { images: Image[] }) {
+export function ProductGallery({ images }: { images: GalleryImage[] }) {
   const [active, setActive] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const current = images[active];
@@ -32,12 +34,20 @@ export function ProductGallery({ images }: { images: Image[] }) {
   return (
     <div>
       <div
-        className="aspect-[4/5] w-full overflow-hidden rounded-2xl bg-secondary/25"
+        className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-secondary/25"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {current ? (
-          <img src={current.url} alt={current.alt ?? ""} className="h-full w-full object-cover" />
+          <NextImage
+            src={current.url}
+            alt={current.alt ?? ""}
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
+            unoptimized={!isOptimizableImage(current.url)}
+            className="object-cover"
+          />
         ) : (
           <PlaceholderImage />
         )}
@@ -51,11 +61,18 @@ export function ProductGallery({ images }: { images: Image[] }) {
               type="button"
               onClick={() => setActive(index)}
               className={cn(
-                "h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition",
+                "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition",
                 index === active ? "border-accent" : "border-transparent"
               )}
             >
-              <img src={image.url} alt="" className="h-full w-full object-cover" />
+              <NextImage
+                src={image.url}
+                alt=""
+                fill
+                sizes="80px"
+                unoptimized={!isOptimizableImage(image.url)}
+                className="object-cover"
+              />
             </button>
           ))}
         </div>

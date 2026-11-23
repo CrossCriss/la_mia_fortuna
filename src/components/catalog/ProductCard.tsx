@@ -2,15 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { formatPrice } from "@/lib/format-price";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { isOptimizableImage } from "@/lib/image";
 import { useCartStore } from "@/lib/cart-store";
 import { isRealSizeName, formatVariantLabel } from "@/lib/color-print";
 import { track } from "@/lib/analytics/track";
 import type { Variant } from "@/components/product/ProductOptions";
 import type { HomeBadge } from "@/lib/home-badges";
+
+const CARD_SIZES = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw";
 
 type ProductCardProps = {
   slug: string;
@@ -118,13 +122,14 @@ export function ProductCard({
     <Link href={`/product/${slug}`} className="group block">
       <div className="relative aspect-[3/4] overflow-hidden bg-secondary/25">
         {image ? (
-          <img
+          <Image
             src={image}
             alt={name}
-            loading="lazy"
-            decoding="async"
+            fill
+            sizes={CARD_SIZES}
+            unoptimized={!isOptimizableImage(image)}
             className={cn(
-              "h-full w-full object-cover transition duration-300 ease-out group-hover:scale-105",
+              "object-cover transition duration-300 ease-out group-hover:scale-105",
               secondaryImage && "group-hover:opacity-0"
             )}
           />
@@ -132,13 +137,14 @@ export function ProductCard({
           <PlaceholderImage />
         )}
         {secondaryImage && (
-          <img
+          <Image
             src={secondaryImage}
             alt=""
             aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-300 ease-out group-hover:opacity-100 group-hover:scale-105"
+            fill
+            sizes={CARD_SIZES}
+            unoptimized={!isOptimizableImage(secondaryImage)}
+            className="object-cover opacity-0 transition duration-300 ease-out group-hover:opacity-100 group-hover:scale-105"
           />
         )}
         {badges && badges.length > 0 ? (

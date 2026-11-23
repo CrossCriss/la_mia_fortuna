@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
+import { isOptimizableImage } from "@/lib/image";
 
 const STATS = [
   { value: "15 років", label: "досвіду в продажах" },
@@ -64,9 +66,17 @@ export function Hero({
         </div>
 
         <div className="relative mt-8 flex-1 md:mt-0">
-          <div className="h-[420px] overflow-hidden bg-surface-dark md:h-[600px]">
+          <div className="relative h-[420px] overflow-hidden bg-surface-dark md:h-[600px]">
             {image ? (
-              <img src={image} alt={imageAlt} className="h-full w-full object-cover" />
+              <Image
+                src={image}
+                alt={imageAlt}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
+                unoptimized={!isOptimizableImage(image)}
+                className="object-cover"
+              />
             ) : (
               <PlaceholderImage className="text-background/70" />
             )}

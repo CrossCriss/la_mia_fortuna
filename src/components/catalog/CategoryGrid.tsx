@@ -1,7 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
+import { isOptimizableImage } from "@/lib/image";
 
 async function getTopCategoriesWithPreview() {
   const categories = await prisma.category.findMany({
@@ -52,10 +54,13 @@ export async function CategoryGrid() {
           className="group relative block aspect-square overflow-hidden rounded-2xl bg-secondary/25"
         >
           {category.previewImage ? (
-            <img
+            <Image
               src={category.previewImage}
               alt={category.name}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              unoptimized={!isOptimizableImage(category.previewImage)}
+              className="object-cover transition duration-300 group-hover:scale-105"
             />
           ) : (
             <PlaceholderImage />
