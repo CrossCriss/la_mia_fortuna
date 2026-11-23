@@ -90,4 +90,62 @@ describe("createOrderSchema", () => {
     ];
     expect(createOrderSchema.safeParse({ ...validOrder, items }).success).toBe(true);
   });
+
+  describe("attribution", () => {
+    const marks = {
+      utm_source: "facebook",
+      utm_medium: "cpc",
+      utm_campaign: "autumn",
+      capturedAt: "2026-11-20T10:00:00.000Z",
+    };
+
+    it("приймає замовлення без attribution", () => {
+      const result = createOrderSchema.safeParse(validOrder);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.attribution).toBeUndefined();
+    });
+
+    it("зберігає атрибуцію з мітками", () => {
+      const result = createOrderSchema.safeParse({ ...validOrder, attribution: marks });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.attribution).toEqual(marks);
+    });
+
+    it("відкидає зайві ключі атрибуції", () => {
+      const result = createOrderSchema.safeParse({
+        ...validOrder,
+        attribution: { ...marks, evil: "x" },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.attribution).toEqual(marks);
+        expect(result.data.attribution).not.toHaveProperty("evil");
+      }
+    });
+
+    it("рядок довший за 200 символів: атрибуція відкидається, замовлення валідне", () => {
+      const result = createOrderSchema.safeParse({
+        ...validOrder,
+        attribution: { ...marks, utm_source: "a".repeat(201) },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.attribution).toBeUndefined();
+    });
+
+    it("приймає рядок рівно 200 символів", () => {
+      const attribution = { ...marks, utm_source: "a".repeat(200) };
+      const result = createOrderSchema.safeParse({ ...validOrder, attribution });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.attribution).toEqual(attribution);
+    });
+
+    it.each([null, "text", 42, ["a"], { utm_source: 5 }])(
+      "невалідна атрибуція %j не ламає замовлення",
+      (attribution) => {
+        const result = createOrderSchema.safeParse({ ...validOrder, attribution });
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.data.attribution).toBeUndefined();
+      },
+    );
+  });
 });

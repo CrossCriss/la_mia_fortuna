@@ -260,6 +260,9 @@ model Order {
 
   comment String?
 
+  // Звідки прийшов покупець (UTM-мітки, реферер); заповнює сайт, не адмін
+  attribution Json?
+
   promoCodeId String?
   promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 

@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { items, email, comment, ...customer } = parsed.data;
+  const { items, email, comment, attribution, ...customer } = parsed.data;
 
   const variants = await prisma.productVariant.findMany({
     where: { id: { in: [...new Set(items.map((item) => item.variantId))] } },
@@ -101,6 +101,7 @@ export async function POST(request: Request) {
         shippingWarehouse: customer.shippingWarehouse,
         shippingWarehouseRef: customer.shippingWarehouseRef,
         comment: comment || undefined,
+        attribution: attribution ? (attribution as Prisma.InputJsonValue) : undefined,
         subtotal,
         total: subtotal,
         items: { create: orderItems },

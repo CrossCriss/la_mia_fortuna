@@ -11,6 +11,7 @@ import { formatVariantLabel } from "@/lib/color-print";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
 import type { PaymentInit } from "@/lib/payment/types";
 import { track } from "@/lib/analytics/track";
+import { readAttribution } from "@/lib/analytics/attribution";
 
 // LiqPay-режим повертає пару data+signature, яку треба відправити POST-ом
 // на liqpay.ua (а не fetch — це має бути справжня навігація браузера).
@@ -115,6 +116,7 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...result.data,
+          attribution: readAttribution() ?? undefined,
           items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
         }),
       });

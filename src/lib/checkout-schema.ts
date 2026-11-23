@@ -31,7 +31,28 @@ export const checkoutFormSchema = z.object({
 
 export type CheckoutFormValues = z.infer<typeof checkoutFormSchema>;
 
+const attributionValue = z.string().max(200).optional();
+
+// Джерело переходу покупця. Клієнту не довіряємо: зайві ключі відкидаються
+// (strip), а невалідна атрибуція (наприклад, рядок довший за 200 символів)
+// не ламає замовлення, а просто вважається відсутньою (.catch).
+const attributionSchema = z
+  .object({
+    utm_source: attributionValue,
+    utm_medium: attributionValue,
+    utm_campaign: attributionValue,
+    utm_content: attributionValue,
+    utm_term: attributionValue,
+    fbclid: attributionValue,
+    landing: attributionValue,
+    referrer: attributionValue,
+    capturedAt: attributionValue,
+  })
+  .optional()
+  .catch(undefined);
+
 export const createOrderSchema = checkoutFormSchema.extend({
+  attribution: attributionSchema,
   items: z
     .array(
       z.object({
