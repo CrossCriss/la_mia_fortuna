@@ -6,6 +6,7 @@ import {
   siteSettingsFormSchema,
   type SiteSettingsFormValues,
 } from "@/lib/admin/site-settings-schema";
+import { compressImage } from "@/lib/admin/compress-image";
 import { cn } from "@/lib/utils";
 
 type CategoryOption = { id: string; label: string };
@@ -43,7 +44,7 @@ export function HomepageSettingsForm({
     setIsUploading(true);
     try {
       const body = new FormData();
-      body.append("file", file);
+      body.append("file", await compressImage(file));
       const response = await fetch("/api/admin/upload", { method: "POST", body });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "Не вдалося завантажити фото");

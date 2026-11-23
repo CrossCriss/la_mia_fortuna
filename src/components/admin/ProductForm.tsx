@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { productFormSchema, type ProductFormValues } from "@/lib/admin/product-schema";
+import { compressImage } from "@/lib/admin/compress-image";
 import { cn } from "@/lib/utils";
 
 type CategoryOption = { id: string; label: string };
@@ -105,7 +106,7 @@ export function ProductForm({
     try {
       for (const file of imageFiles.slice(0, availableSlots)) {
         const body = new FormData();
-        body.append("file", file);
+        body.append("file", await compressImage(file));
         const response = await fetch("/api/admin/upload", { method: "POST", body });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error ?? "Не вдалося завантажити фото");
