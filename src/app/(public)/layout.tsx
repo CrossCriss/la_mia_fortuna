@@ -1,6 +1,8 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { AnalyticsScripts } from "@/components/analytics/AnalyticsScripts";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 export default function PublicLayout({
   children,
@@ -13,6 +15,8 @@ export default function PublicLayout({
       <main className="flex-1">{children}</main>
       <Footer />
       <CartDrawer />
+      <AnalyticsScripts />
+      <PageViewTracker />
     </div>
   );
 }
