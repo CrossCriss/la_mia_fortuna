@@ -8,6 +8,12 @@ import type { PaymentInit } from "@/lib/payment/types";
 import { getSiteUrl } from "@/lib/site-config";
 import { formatNewOrderMessage, sendTelegramMessage } from "@/lib/notify/telegram";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { checkFormGuard } from "@/lib/antibot/form-guard";
+import { verifyTurnstileToken } from "@/lib/antibot/turnstile";
+import { COD_WINDOW_MS, countPairs, evaluateCod } from "@/lib/orders/cod-policy";
+import { CHECKOUT_ERROR_CODES, codReasonToCode, getCheckoutErrorMessage } from "@/lib/checkout-errors";
+import { verifyNovaPoshtaAddress } from "@/lib/delivery/nova-poshta";
+import { phoneLookupVariants } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +28,11 @@ const INVALID_ORDER_ERROR = "Некоректні дані замовлення"
 const MAX_ORDER_NUMBER_ATTEMPTS = 3;
 const ORDER_LIMIT = 10;
 const ORDER_WINDOW_MS = 10 * 60 * 1000; // 10 хвилин
+
+// 380XXXXXXXXX -> 380*****4567 (для логів без персональних даних)
+function maskPhone(phone: string): string {
+  return `${phone.slice(0, 3)}*****${phone.slice(-4)}`;
+}
 
 function isOrderNumberConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
@@ -56,6 +67,33 @@ export async function POST(request: Request) {
     );
   }
 
+  const guard = checkFormGuard({ honeypot: parsed.data.website, fillMs: parsed.data.fillMs });
+  if (!guard.ok) {
+    console.warn(`Checkout: відхилено антиботом (${guard.reason})`);
+    return NextResponse.json(
+      {
+        error: getCheckoutErrorMessage(CHECKOUT_ERROR_CODES.CHECK_FAILED, { onlineEnabled: isOnlinePaymentEnabled() }),
+        code: CHECKOUT_ERROR_CODES.CHECK_FAILED,
+      },
+      { status: 400 }
+    );
+  }
+
+  const turnstile = await verifyTurnstileToken(parsed.data.turnstileToken, getClientIp(request));
+  if (turnstile === "failed") {
+    console.warn("Checkout: відхилено Turnstile");
+    return NextResponse.json(
+      {
+        error: getCheckoutErrorMessage(CHECKOUT_ERROR_CODES.CHECK_FAILED, { onlineEnabled: isOnlinePaymentEnabled() }),
+        code: CHECKOUT_ERROR_CODES.CHECK_FAILED,
+      },
+      { status: 400 }
+    );
+  }
+  if (turnstile === "unavailable") {
+    console.error("Checkout: Turnstile недоступний, замовлення пропущено без перевірки");
+  }
+
   if (parsed.data.paymentMethod === "ONLINE_CARD" && !isOnlinePaymentEnabled()) {
     return NextResponse.json(
       { error: "Оплата карткою тимчасово недоступна. Оберіть накладений платіж." },
@@ -63,7 +101,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const { items, email, comment, attribution, ...customer } = parsed.data;
+  // website, fillMs, turnstileToken використані вище і в заказ не потрапляють.
+  const { items, email, comment, attribution, website, fillMs, turnstileToken, ...customer } = parsed.data;
+  void website;
+  void fillMs;
+  void turnstileToken;
 
   const variants = await prisma.productVariant.findMany({
     where: { id: { in: [...new Set(items.map((item) => item.variantId))] } },
@@ -84,6 +126,45 @@ export async function POST(request: Request) {
 
   const { orderItems, subtotal } = built;
 
+  if (customer.paymentMethod === "CASH_ON_DELIVERY") {
+    const [blocked, pendingCodOrders] = await Promise.all([
+      prisma.blockedPhone.findUnique({ where: { phone: customer.phone } }),
+      prisma.order.count({
+        where: {
+          paymentMethod: "CASH_ON_DELIVERY",
+          status: "NEW",
+          phone: { in: phoneLookupVariants(customer.phone) },
+          createdAt: { gte: new Date(Date.now() - COD_WINDOW_MS) },
+        },
+      }),
+    ]);
+    const decision = evaluateCod({
+      pairs: countPairs(orderItems),
+      pendingCodOrders,
+      isBlocked: blocked !== null,
+    });
+    if (!decision.allowed) {
+      const code = codReasonToCode(decision.reason);
+      console.info(`Checkout: накладений платіж відхилено (${decision.reason}), номер ${maskPhone(customer.phone)}`);
+      return NextResponse.json(
+        { error: getCheckoutErrorMessage(code, { onlineEnabled: isOnlinePaymentEnabled() }), code },
+        { status: 422 }
+      );
+    }
+  }
+
+  const addressCheck = await verifyNovaPoshtaAddress(customer.shippingCityRef, customer.shippingWarehouseRef);
+  if (addressCheck === "invalid") {
+    return NextResponse.json(
+      {
+        error: getCheckoutErrorMessage(CHECKOUT_ERROR_CODES.ADDRESS_INVALID, { onlineEnabled: isOnlinePaymentEnabled() }),
+        code: CHECKOUT_ERROR_CODES.ADDRESS_INVALID,
+      },
+      { status: 400 }
+    );
+  }
+  const addressUnverified = addressCheck === "unavailable";
+
   const isOnlineCard = customer.paymentMethod === "ONLINE_CARD";
   const paymentMethod = isOnlineCard ? getActivePaymentMethod() : "CASH_ON_DELIVERY";
 
@@ -94,7 +175,8 @@ export async function POST(request: Request) {
         status: "NEW",
         paymentMethod,
         customerName: customer.customerName,
-        phone: customer.phone,
+        phone: `+${customer.phone}`,
+        addressUnverified,
         email: email || undefined,
         shippingCity: customer.shippingCity,
         shippingCityRef: customer.shippingCityRef,
