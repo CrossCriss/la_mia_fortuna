@@ -95,23 +95,24 @@ describe("toMetaPixel", () => {
 
 describe("track", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
   const purchase: AnalyticsEvent = { name: "purchase", orderNumber: "LMF-7", items: [itemB], value: 850 };
 
-  it("без window нічого не падає, isAnalyticsReady = false", () => {
+  it("без window нічого не падає, результат false, isAnalyticsReady = false", async () => {
     expect(typeof window).toBe("undefined");
-    expect(() => track(purchase)).not.toThrow();
+    await expect(track(purchase)).resolves.toBe(false);
     expect(isAnalyticsReady()).toBe(false);
   });
 
-  it("викликає gtag і fbq з правильними аргументами", () => {
+  it("викликає gtag і fbq з правильними аргументами, результат true", async () => {
     const gtag = vi.fn();
     const fbq = vi.fn();
     vi.stubGlobal("window", { gtag, fbq });
 
-    track(purchase);
+    await expect(track(purchase)).resolves.toBe(true);
 
     expect(gtag).toHaveBeenCalledTimes(1);
     expect(gtag).toHaveBeenCalledWith("event", "purchase", toGa4(purchase).params);
@@ -120,39 +121,104 @@ describe("track", () => {
     expect(isAnalyticsReady()).toBe(true);
   });
 
-  it("для подій без eventId четвертий аргумент fbq - undefined", () => {
+  it("для подій без eventId четвертий аргумент fbq - undefined", async () => {
+    vi.useFakeTimers();
     const fbq = vi.fn();
     vi.stubGlobal("window", { fbq });
 
-    track({ name: "view_item", item: itemB });
+    const promise = track({ name: "view_item", item: itemB });
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(promise).resolves.toBe(true);
 
     expect(fbq).toHaveBeenCalledWith("track", "ViewContent", expect.any(Object), undefined);
   });
 
-  it("працює, якщо підключений лише один зі скриптів", () => {
+  it("працює, якщо підключений лише один зі скриптів", async () => {
+    vi.useFakeTimers();
     const gtag = vi.fn();
     vi.stubGlobal("window", { gtag });
-    expect(() => track({ name: "add_to_cart", item: itemB })).not.toThrow();
+
+    const promise = track({ name: "add_to_cart", item: itemB });
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(promise).resolves.toBe(true);
+
+    expect(gtag).toHaveBeenCalledTimes(1);
     expect(gtag).toHaveBeenCalledWith("event", "add_to_cart", expect.any(Object));
     expect(isAnalyticsReady()).toBe(true);
   });
 
-  it("виняток у gtag не пробрасується і не блокує fbq", () => {
+  it("виняток у gtag не пробрасується і не блокує fbq", async () => {
     const gtag = vi.fn(() => {
       throw new Error("gtag boom");
     });
     const fbq = vi.fn();
     vi.stubGlobal("window", { gtag, fbq });
 
-    expect(() => track(purchase)).not.toThrow();
+    await expect(track(purchase)).resolves.toBe(true);
     expect(fbq).toHaveBeenCalledTimes(1);
   });
 
-  it("виняток у fbq не пробрасується", () => {
+  it("виняток у fbq не пробрасується, результат false, якщо інших систем немає", async () => {
+    vi.useFakeTimers();
     const fbq = vi.fn(() => {
       throw new Error("fbq boom");
     });
     vi.stubGlobal("window", { fbq });
-    expect(() => track(purchase)).not.toThrow();
+
+    const promise = track(purchase);
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(promise).resolves.toBe(false);
+  });
+
+  it("fbq є одразу, gtag з'являється через 1000 мс: кожна система викликана один раз", async () => {
+    vi.useFakeTimers();
+    const fbq = vi.fn();
+    const gtag = vi.fn();
+    const win: { gtag?: typeof gtag; fbq?: typeof fbq } = { fbq };
+    vi.stubGlobal("window", win);
+
+    const promise = track(purchase);
+    expect(fbq).toHaveBeenCalledTimes(1);
+    expect(gtag).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(gtag).not.toHaveBeenCalled();
+    win.gtag = gtag;
+    await vi.advanceTimersByTimeAsync(200);
+
+    await expect(promise).resolves.toBe(true);
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(gtag).toHaveBeenCalledWith("event", "purchase", toGa4(purchase).params);
+    expect(fbq).toHaveBeenCalledTimes(1);
+
+    // Після завершення додаткових відправок не відбувається
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(fbq).toHaveBeenCalledTimes(1);
+  });
+
+  it("жодна система не з'явилась: через 5000 мс результат false, нічого не викликано", async () => {
+    vi.useFakeTimers();
+    const win: { gtag?: () => void; fbq?: () => void } = {};
+    vi.stubGlobal("window", win);
+
+    let settled = false;
+    const promise = track(purchase).then((r) => {
+      settled = true;
+      return r;
+    });
+
+    await vi.advanceTimersByTimeAsync(4800);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+
+    await expect(promise).resolves.toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+
+    // Функції, що з'явилися після таймауту, подію вже не отримують
+    const gtag = vi.fn();
+    win.gtag = gtag;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(gtag).not.toHaveBeenCalled();
   });
 });
