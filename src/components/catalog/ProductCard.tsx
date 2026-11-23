@@ -7,7 +7,8 @@ import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/lib/cart-store";
-import { isRealSizeName } from "@/lib/color-print";
+import { isRealSizeName, formatVariantLabel } from "@/lib/color-print";
+import { track } from "@/lib/analytics/track";
 import type { Variant } from "@/components/product/ProductOptions";
 import type { HomeBadge } from "@/lib/home-badges";
 
@@ -98,6 +99,16 @@ export function ProductCard({
       price: discountPrice ?? price,
       quantity: 1,
       image,
+    });
+    track({
+      name: "add_to_cart",
+      item: {
+        id: slug,
+        name,
+        price: discountPrice ?? price,
+        quantity: 1,
+        variant: formatVariantLabel(activeVariant.size, activeVariant.color) ?? undefined,
+      },
     });
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1500);

@@ -9,6 +9,7 @@ import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { SITE, getSiteUrl } from "@/lib/site-config";
 import { buildProductDescription, buildProductJsonLd } from "@/lib/seo";
+import { TrackViewItem } from "@/components/analytics/TrackViewItem";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,14 @@ export default async function ProductPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
+      <TrackViewItem
+        item={{
+          id: product.slug,
+          name: product.name,
+          price: Number(product.discountPrice ?? product.price),
+          quantity: 1,
+        }}
       />
       <div className="flex flex-wrap gap-2 text-sm text-ink-soft">
         <Link href="/">Головна</Link>

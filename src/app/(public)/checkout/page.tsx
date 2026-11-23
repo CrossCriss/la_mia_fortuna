@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
@@ -10,6 +10,7 @@ import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/checkout-sche
 import { formatVariantLabel } from "@/lib/color-print";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
 import type { PaymentInit } from "@/lib/payment/types";
+import { track } from "@/lib/analytics/track";
 
 // LiqPay-режим повертає пару data+signature, яку треба відправити POST-ом
 // на liqpay.ua (а не fetch — це має бути справжня навігація браузера).
@@ -59,6 +60,23 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // begin_checkout: один раз, коли після гідратації persist-стору в кошику є товари
+  const beginCheckoutSent = useRef(false);
+  useEffect(() => {
+    if (beginCheckoutSent.current || items.length === 0) return;
+    beginCheckoutSent.current = true;
+    track({
+      name: "begin_checkout",
+      items: items.map((item) => ({
+        id: item.productSlug,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: formatVariantLabel(item.size, item.color) ?? undefined,
+      })),
+    });
+  }, [items]);
 
   const total = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),

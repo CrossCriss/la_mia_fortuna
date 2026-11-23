@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useCartStore } from "@/lib/cart-store";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format-price";
-import { classifyVariantOption } from "@/lib/color-print";
+import { classifyVariantOption, formatVariantLabel } from "@/lib/color-print";
+import { track } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/Button";
 
 export type Variant = {
@@ -81,6 +82,16 @@ export function ProductOptions({
       price: effectivePrice,
       quantity: 1,
       image,
+    });
+    track({
+      name: "add_to_cart",
+      item: {
+        id: productSlug,
+        name,
+        price: effectivePrice,
+        quantity: 1,
+        variant: formatVariantLabel(activeVariant.size, activeVariant.color) ?? undefined,
+      },
     });
     openCart();
   }
