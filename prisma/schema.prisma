@@ -263,6 +263,9 @@ model Order {
   // Звідки прийшов покупець (UTM-мітки, реферер); заповнює сайт, не адмін
   attribution Json?
 
+  // НП не підтвердила адресу при оформленні; адреса уточняється дзвінком
+  addressUnverified Boolean @default(false)
+
   promoCodeId String?
   promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
@@ -346,4 +349,12 @@ model AdminUser {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Номери, з яких наложений платіж недоступний (формат 380XXXXXXXXX)
+model BlockedPhone {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
 }
