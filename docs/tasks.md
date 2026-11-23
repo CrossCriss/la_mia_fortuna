@@ -584,7 +584,7 @@
 
 ### P-01. Сжатие фото в браузере при загрузке в админке
 
-- Статус: TODO
+- Статус: DONE
 - Цель: фото с телефона (до 5 МБ) попадают в хранилище уже уменьшенными, сайт и загрузка в админке быстрее.
 - Файлы: `src/lib/admin/compress-image.ts` (новый), `src/lib/admin/compress-image.test.ts` (новый), `src/components/admin/ProductForm.tsx`, `src/components/admin/HomepageSettingsForm.tsx`.
 - Входы и выходы:
@@ -600,7 +600,7 @@
 
 ### P-02. next/image для публичных картинок
 
-- Статус: TODO
+- Статус: DONE
 - Цель: телефон получает картинку нужного размера, а не оригинал.
 - Файлы: `src/lib/image.ts` (новый), `src/lib/image.test.ts` (новый), `src/components/catalog/ProductCard.tsx`, `src/components/product/ProductGallery.tsx`, `src/components/home/Hero.tsx`, `src/components/catalog/CategoryGrid.tsx`, `src/app/(public)/page.tsx`.
 - Входы и выходы:
