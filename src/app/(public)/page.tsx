@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { Hero } from "@/components/home/Hero";
-import { ContactFloatingBar } from "@/components/home/ContactFloatingBar";
 import { FeaturedCategorySection } from "@/components/home/FeaturedCategorySection";
 import { BenefitsSection } from "@/components/home/BenefitsSection";
 import { SizeHelpBanner } from "@/components/home/SizeHelpBanner";
@@ -128,7 +127,6 @@ export default async function HomePage() {
 
   return (
     <div>
-      <ContactFloatingBar />
       <Hero
         image={settings.heroImageUrl}
         imageAlt={settings.heroImageAlt ?? undefined}

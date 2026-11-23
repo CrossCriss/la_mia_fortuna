@@ -4,6 +4,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AnalyticsScripts } from "@/components/analytics/AnalyticsScripts";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 import { AttributionCapture } from "@/components/analytics/AttributionCapture";
+import { ContactFloatingBar } from "@/components/home/ContactFloatingBar";
 
 export default function PublicLayout({
   children,
@@ -15,6 +16,7 @@ export default function PublicLayout({
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <ContactFloatingBar />
       <CartDrawer />
       <AnalyticsScripts />
       <PageViewTracker />
