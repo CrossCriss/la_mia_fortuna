@@ -466,7 +466,7 @@
 
 ### A-01. Ядро аналитики: сборка и отправка событий
 
-- Статус: TODO
+- Статус: DONE
 - Цель: одно внутреннее событие превращается в корректные параметры GA4 и Meta Pixel; логика покрыта тестами.
 - Файлы: `src/lib/analytics/events.ts` (новый), `src/lib/analytics/events.test.ts` (новый), `src/lib/analytics/track.ts` (новый), `src/types/analytics.d.ts` (новый).
 - Входы и выходы:
@@ -483,7 +483,7 @@
 
 ### A-02. Загрузка GA4 и Meta Pixel, просмотры страниц
 
-- Статус: TODO
+- Статус: DONE
 - Цель: скрипты аналитики грузятся только в публичной части и только при заданных ID.
 - Файлы: `src/components/analytics/AnalyticsScripts.tsx` (новый), `src/components/analytics/PageViewTracker.tsx` (новый), `src/app/(public)/layout.tsx`.
 - Входы и выходы:
@@ -499,7 +499,7 @@
 
 ### A-03. События просмотра товара, корзины и начала оформления
 
-- Статус: TODO
+- Статус: DONE
 - Цель: в Pixel и GA4 уходят ViewContent, AddToCart, InitiateCheckout.
 - Файлы: `src/components/analytics/TrackViewItem.tsx` (новый), `src/app/(public)/product/[productSlug]/page.tsx`, `src/components/product/ProductOptions.tsx`, `src/components/catalog/ProductCard.tsx`, `src/app/(public)/checkout/page.tsx`.
 - Входы и выходы:
@@ -515,13 +515,13 @@
 
 ### A-04. Событие покупки на странице благодарности
 
-- Статус: TODO
+- Статус: DONE
 - Цель: Purchase уходит один раз на заказ и только за реальный заказ.
 - Файлы: `src/components/analytics/TrackPurchase.tsx` (новый), `src/app/(public)/thank-you/page.tsx`.
 - Входы и выходы:
   - `TrackPurchase` (клиентский, рендерит `null`): пропсы `orderNumber`, `value`, `items`. В `useEffect`: если в localStorage есть ключ `lmf-purchase:<orderNumber>` - ничего не делать; иначе `track({ name: "purchase", ... })` и записать ключ. Доступ к localStorage в try/catch.
   - Страница: рендерить `TrackPurchase` только если сводка заказа получена и (`paymentKind === "COD"` или `paymentStatus === "PAID"`).
-  - Так как скрипты Pixel/GA4 грузятся `afterInteractive`, событие может вызваться раньше их загрузки: в `TrackPurchase` повторять попытку до 10 раз с шагом 500 мс, пока не появится `window.fbq` или `window.gtag`; если не появились - выйти без записи ключа.
+  - Так как скрипты Pixel/GA4 грузятся `afterInteractive`, событие может вызваться раньше их загрузки. Ожидание реализовано в `track()` (доработка A-01b: каждая система ждет свою функцию до 5 секунд, `track` возвращает `Promise<boolean>`); `TrackPurchase` пишет ключ только если `track` вернул `true`.
 - Критерии приемки:
   - `БАЗА` зеленая, `npm run build` проходит.
   - `grep -n "TrackPurchase" "src/app/(public)/thank-you/page.tsx"` находит использование внутри условия по статусу оплаты.
@@ -530,7 +530,7 @@
 
 ### A-05. Захват UTM-меток и источника перехода
 
-- Статус: TODO
+- Статус: DONE
 - Цель: сайт запоминает, с какой рекламы пришел покупатель.
 - Файлы: `src/lib/analytics/attribution.ts` (новый), `src/lib/analytics/attribution.test.ts` (новый), `src/components/analytics/AttributionCapture.tsx` (новый), `src/app/(public)/layout.tsx`.
 - Входы и выходы:
@@ -539,6 +539,7 @@
   - `mergeAttribution(existing: Attribution | null, incoming: Attribution | null, now: Date): Attribution | null` - новое непустое значение заменяет старое; старое сохраняется, если нового нет и ему меньше 30 дней; иначе `null`.
   - `readAttribution()` / `writeAttribution()` - localStorage, ключ `lmf-attribution`, try/catch.
   - `AttributionCapture` (клиентский, `null`): один раз при загрузке читает `window.location` и `document.referrer`, сливает и сохраняет. Подключить в `(public)/layout.tsx`.
+  - Уточнение после ревью: переход из Instagram/Facebook без меток (источник только из реферера) НЕ затирает свежие (младше 30 дней) настоящие метки (fbclid, utm_campaign/content/term или utm_medium не равный referral). Хосты реферера сравниваются строго (`instagram.com`, `facebook.com`, `fb.com` и их поддомены).
 - Критерии приемки:
   - `npm test` зеленый: метки из строки запроса, только `fbclid`, реферер Instagram без меток, прямой заход (`null`), замена старого значения новым, истечение через 30 дней, обрезка длинных значений.
   - `БАЗА` зеленая.
