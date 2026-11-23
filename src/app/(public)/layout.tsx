@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AnalyticsScripts } from "@/components/analytics/AnalyticsScripts";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { AttributionCapture } from "@/components/analytics/AttributionCapture";
 
 export default function PublicLayout({
   children,
@@ -17,6 +18,7 @@ export default function PublicLayout({
       <CartDrawer />
       <AnalyticsScripts />
       <PageViewTracker />
+      <AttributionCapture />
     </div>
   );
 }
