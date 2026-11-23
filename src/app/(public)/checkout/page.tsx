@@ -12,6 +12,7 @@ import { getCheckoutErrorMessage } from "@/lib/checkout-errors";
 import { CheckoutBlockedNotice } from "@/components/checkout/CheckoutBlockedNotice";
 import { formatVariantLabel } from "@/lib/color-print";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
+import { TurnstileWidget, type TurnstileHandle } from "@/components/checkout/TurnstileWidget";
 import type { PaymentInit } from "@/lib/payment/types";
 import { track } from "@/lib/analytics/track";
 import { readAttribution } from "@/lib/analytics/attribution";
@@ -76,6 +77,7 @@ export default function CheckoutPage() {
 
   // begin_checkout: один раз, коли після гідратації persist-стору в кошику є товари
   const beginCheckoutSent = useRef(false);
+  const turnstileRef = useRef<TurnstileHandle>(null);
   useEffect(() => {
     if (beginCheckoutSent.current || items.length === 0) return;
     beginCheckoutSent.current = true;
@@ -142,12 +144,14 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     try {
+      const turnstileToken = await turnstileRef.current?.getToken();
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...result.data,
           website,
+          turnstileToken: turnstileToken ?? undefined,
           fillMs: startedAt.current === null ? 0 : Math.min(Date.now() - startedAt.current, 86_400_000),
           attribution: readAttribution() ?? undefined,
           items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
@@ -197,6 +201,7 @@ export default function CheckoutPage() {
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Сталася помилка");
     } finally {
+      turnstileRef.current?.reset();
       setIsSubmitting(false);
     }
   }
@@ -329,6 +334,8 @@ export default function CheckoutPage() {
               message={getCheckoutErrorMessage("COD_TOO_MANY_PAIRS", { onlineEnabled: false })}
             />
           )}
+
+          {!hideSubmit && !tooManyBlocked && <TurnstileWidget ref={turnstileRef} />}
 
           {!hideSubmit && !tooManyBlocked && (
             <button
