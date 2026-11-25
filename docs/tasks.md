@@ -87,7 +87,7 @@
 
 - Статус: DONE
 - Цель: телефон, ссылки на соцсети, название бренда и реквизиты продавца лежат в одном файле, а не в пяти.
-- Файлы: `src/lib/site-config.ts` (новый), `src/components/layout/Footer.tsx`, `src/components/home/ContactFloatingBar.tsx`, `src/components/home/InstagramTeaser.tsx`, `src/app/(public)/contacts/page.tsx`, `src/app/(public)/privacy/page.tsx`.
+- Файлы: `src/lib/site-config.ts` (новый), `src/components/layout/Footer.tsx`, `src/components/home/ContactFloatingBar.tsx`, `src/app/(public)/contacts/page.tsx`, `src/app/(public)/privacy/page.tsx`.
 - Входы и выходы:
   - `site-config.ts` экспортирует `SITE` (объект `as const`): `name: "La Mia Fortuna Shoes"`, `description` (текущий из `src/app/layout.tsx`), `phoneDisplay: "066 790 10 44"`, `phoneHref: "tel:+380667901044"`, `telegramUrl: "https://t.me/+380667901044"`, `instagramUrl: "https://www.instagram.com/la_mia_fortuna_shoes"`, `instagramHandle: "@la_mia_fortuna_shoes"`, `seller: { legalName: "", taxId: "", address: "", email: "" }` (пустые строки, заполнит человек).
   - Там же функция `getSiteUrl(): string`: возвращает `process.env.NEXT_PUBLIC_SITE_URL` без завершающего слеша, по умолчанию `http://localhost:3000`.

@@ -5,7 +5,6 @@ import { Hero } from "@/components/home/Hero";
 import { FeaturedCategorySection } from "@/components/home/FeaturedCategorySection";
 import { BenefitsSection } from "@/components/home/BenefitsSection";
 import { SizeHelpBanner } from "@/components/home/SizeHelpBanner";
-import { InstagramTeaser } from "@/components/home/InstagramTeaser";
 import { HowToOrderSteps } from "@/components/home/HowToOrderSteps";
 import { ReviewsSection } from "@/components/home/ReviewsSection";
 import { REVIEWS } from "@/content/reviews";
@@ -182,8 +181,6 @@ export default async function HomePage() {
       <SizeHelpBanner />
 
       <ReviewsSection reviews={REVIEWS} />
-
-      <InstagramTeaser />
 
       <div className="mx-auto max-w-6xl px-4 md:px-10">
         <HowToOrderSteps />
