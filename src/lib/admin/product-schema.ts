@@ -28,6 +28,12 @@ export const productFormSchema = z
     fabricComposition: z.string().trim().optional(),
     description: z.string().trim().optional(),
     seoDescription: z.string().trim().optional(),
+    // Фото таблиці розмірів: URL або порожнє/null (порожнє зберігається як null).
+    sizeChartImageUrl: z
+      .string()
+      .trim()
+      .nullish()
+      .transform((value) => (value ? value : null)),
     isNew: z.boolean(),
     isPromo: z.boolean(),
     isPublished: z.boolean(),

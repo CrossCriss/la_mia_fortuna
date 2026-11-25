@@ -26,6 +26,7 @@ export default async function AdminNewProductPage() {
             fabricComposition: "",
             description: "",
             seoDescription: "",
+            sizeChartImageUrl: null,
             isNew: false,
             isPromo: false,
             isPublished: true,

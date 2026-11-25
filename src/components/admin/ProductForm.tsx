@@ -56,6 +56,9 @@ export function ProductForm({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const sizeChartInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingChart, setIsUploadingChart] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   function updateField<K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -119,6 +122,24 @@ export function ProductForm({
       setUploadError(error instanceof Error ? error.message : "Сталася помилка завантаження");
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function uploadSizeChart(file: File | undefined) {
+    if (!file || !file.type.startsWith("image/")) return;
+    setChartError(null);
+    setIsUploadingChart(true);
+    try {
+      const body = new FormData();
+      body.append("file", await compressImage(file));
+      const response = await fetch("/api/admin/upload", { method: "POST", body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error ?? "Не вдалося завантажити фото");
+      updateField("sizeChartImageUrl", data.url);
+    } catch (error) {
+      setChartError(error instanceof Error ? error.message : "Сталася помилка завантаження");
+    } finally {
+      setIsUploadingChart(false);
     }
   }
 
@@ -388,6 +409,53 @@ export function ProductForm({
           className="hidden"
         />
         {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-sm font-semibold text-neutral-900">Таблиця розмірів (фото)</h2>
+        <p className="mb-3 text-xs text-neutral-500">
+          Необов&apos;язково. Фото або скрін таблиці розмірів саме цієї моделі. Покажеться останнім
+          фото в галереї
+        </p>
+        <div className="flex items-start gap-3">
+          {form.sizeChartImageUrl ? (
+            <div className="flex items-start gap-3">
+              <img
+                src={form.sizeChartImageUrl}
+                alt="Таблиця розмірів"
+                className="h-32 w-32 rounded-lg border border-neutral-200 bg-neutral-50 object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => updateField("sizeChartImageUrl", null)}
+                className="text-sm text-red-600 hover:underline"
+              >
+                Видалити
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => sizeChartInputRef.current?.click()}
+              disabled={isUploadingChart}
+              className="flex h-24 w-32 items-center justify-center rounded-lg border border-dashed border-neutral-300 px-1 text-center text-xs text-neutral-500 hover:border-neutral-400 disabled:opacity-50"
+            >
+              {isUploadingChart ? "Завантаження…" : "+ Додати таблицю"}
+            </button>
+          )}
+        </div>
+        <input
+          ref={sizeChartInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            uploadSizeChart(file);
+          }}
+          className="hidden"
+        />
+        {chartError && <p className="mt-2 text-xs text-red-600">{chartError}</p>}
       </section>
 
       <section>

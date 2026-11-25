@@ -9,6 +9,7 @@ import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { buildProductWhereForCategory } from "@/lib/catalog";
 import { SITE, getSiteUrl } from "@/lib/site-config";
 import { buildProductDescription, buildProductJsonLd } from "@/lib/seo";
+import { buildGalleryImages } from "@/lib/product-gallery";
 import { TrackViewItem } from "@/components/analytics/TrackViewItem";
 
 export const dynamic = "force-dynamic";
@@ -154,7 +155,13 @@ export default async function ProductPage({
       </div>
 
       <div className="mt-6 grid gap-12 md:grid-cols-2">
-        <ProductGallery images={product.images.map((image) => ({ url: image.url, alt: image.alt }))} />
+        <ProductGallery
+          images={buildGalleryImages(
+            product.images.map((image) => ({ url: image.url, alt: image.alt })),
+            product.sizeChartImageUrl,
+            product.name
+          )}
+        />
 
         <div>
           {product.isNew && (
@@ -175,6 +182,7 @@ export default async function ProductPage({
               discountPrice={product.discountPrice ? Number(product.discountPrice) : null}
               image={product.images[0]?.url}
               variants={variants}
+              hasSizeChart={Boolean(product.sizeChartImageUrl)}
             />
           </div>
 

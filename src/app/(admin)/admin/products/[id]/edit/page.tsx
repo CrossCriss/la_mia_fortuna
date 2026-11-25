@@ -38,6 +38,7 @@ export default async function AdminEditProductPage({
             fabricComposition: product.fabricComposition ?? "",
             description: product.description ?? "",
             seoDescription: product.seoDescription ?? "",
+            sizeChartImageUrl: product.sizeChartImageUrl,
             isNew: product.isNew,
             isPromo: product.isPromo,
             isPublished: product.isPublished,

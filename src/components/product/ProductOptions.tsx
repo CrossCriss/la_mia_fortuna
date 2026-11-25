@@ -7,6 +7,8 @@ import { formatPrice } from "@/lib/format-price";
 import { classifyVariantOption, formatVariantLabel } from "@/lib/color-print";
 import { track } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/Button";
+import Link from "next/link";
+import { SHOW_SIZE_CHART_EVENT } from "@/lib/product-gallery";
 
 export type Variant = {
   id: string;
@@ -23,8 +25,10 @@ export function ProductOptions({
   discountPrice,
   image,
   variants,
+  hasSizeChart = false,
 }: {
   productSlug: string;
+  hasSizeChart?: boolean;
   name: string;
   price: number;
   discountPrice: number | null;
@@ -153,7 +157,25 @@ export function ProductOptions({
 
       {sizesForColor.length > 0 && (
         <div className="mt-6">
-          <p className="mb-2 text-sm font-medium">Розмір</p>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">Розмір</p>
+            {hasSizeChart ? (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event(SHOW_SIZE_CHART_EVENT))}
+                className="text-sm font-semibold text-ink underline underline-offset-4"
+              >
+                Таблиця розмірів
+              </button>
+            ) : (
+              <Link
+                href="/size-guide"
+                className="text-sm font-semibold text-ink underline underline-offset-4"
+              >
+                Таблиця розмірів
+              </Link>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2.5">
             {sizesForColor.map((variant) => (
               <button

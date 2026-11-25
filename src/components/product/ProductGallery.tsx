@@ -1,19 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import NextImage from "next/image";
 import { cn } from "@/lib/utils";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
 import { isOptimizableImage } from "@/lib/image";
-
-type GalleryImage = { url: string; alt: string | null };
+import { SHOW_SIZE_CHART_EVENT, type GalleryImage } from "@/lib/product-gallery";
 
 const SWIPE_THRESHOLD_PX = 40;
 
 export function ProductGallery({ images }: { images: GalleryImage[] }) {
   const [active, setActive] = useState(0);
   const touchStartX = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const current = images[active];
+
+  // Кнопка "Таблиця розмірів" біля вибору розміру: показати останній слайд
+  // (таблицю) і прокрутити до галереї (на мобільному вона над опціями).
+  useEffect(() => {
+    function showLast() {
+      if (!images.some((image) => image.contain)) return;
+      setActive(images.length - 1);
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    window.addEventListener(SHOW_SIZE_CHART_EVENT, showLast);
+    return () => window.removeEventListener(SHOW_SIZE_CHART_EVENT, showLast);
+  }, [images]);
 
   function handleTouchStart(event: React.TouchEvent) {
     touchStartX.current = event.touches[0].clientX;
@@ -32,7 +44,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
   }
 
   return (
-    <div>
+    <div ref={rootRef} className="scroll-mt-4">
       <div
         className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-secondary/25"
         onTouchStart={handleTouchStart}
@@ -43,10 +55,10 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
             src={current.url}
             alt={current.alt ?? ""}
             fill
-            priority
+            priority={active === 0}
             sizes="(max-width: 768px) 100vw, 50vw"
             unoptimized={!isOptimizableImage(current.url)}
-            className="object-cover"
+            className={current.contain ? "object-contain" : "object-cover"}
           />
         ) : (
           <PlaceholderImage />
@@ -71,7 +83,7 @@ export function ProductGallery({ images }: { images: GalleryImage[] }) {
                 fill
                 sizes="80px"
                 unoptimized={!isOptimizableImage(image.url)}
-                className="object-cover"
+                className={image.contain ? "object-contain" : "object-cover"}
               />
             </button>
           ))}

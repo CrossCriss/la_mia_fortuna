@@ -95,6 +95,7 @@ model Product {
   fabricComposition String? // Состав ткани
   seoDescription    String? // SEO-описание
   description       String? // Полное описание для карточки товара
+  sizeChartImageUrl String? // Фото таблицы размеров этой модели (последний слайд галереи, не обложка)
 
   isNew       Boolean @default(false) // попадает в "Новинки"
   isPromo     Boolean @default(false) // попадает в "Акции"
