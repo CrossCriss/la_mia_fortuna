@@ -39,7 +39,7 @@ export function Hero({
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/catalog/zhinoche-vzuttya"
+              href="/catalog"
               className="inline-flex min-h-[52px] items-center bg-accent px-8 text-[15px] font-semibold tracking-wide text-white hover:bg-accent-dark"
             >
               Дивитись колекцію

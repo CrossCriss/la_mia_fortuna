@@ -40,39 +40,41 @@ export async function Header() {
   const navLinks = await getNavLinks();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
+    <>
       <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-1 bg-surface-dark px-6 py-2.5 text-center text-xs font-semibold tracking-wide text-background">
         <span>Власне виробництво, Харків</span>
         <span>Натуральна шкіра</span>
         <span>Швидка відправка по Україні</span>
       </div>
-      <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-3">
-          <MobileNav links={navLinks} />
-          <Link href="/" className="flex flex-col leading-none">
-            <span className="font-display text-[28px] font-semibold tracking-[0.2em] text-ink">
-              FORTUNA
-            </span>
-            <span className="mt-1 text-[9px] tracking-[0.5em] text-ink-soft">LA MIA · SHOES</span>
-          </Link>
-        </div>
+      <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
+        <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <MobileNav links={navLinks} />
+            <Link href="/" className="flex flex-col leading-none">
+              <span className="font-display text-[28px] font-semibold tracking-[0.2em] text-ink">
+                FORTUNA
+              </span>
+              <span className="mt-1 text-[9px] tracking-[0.5em] text-ink-soft">LA MIA · SHOES</span>
+            </Link>
+          </div>
 
-        <nav className="hidden gap-7 text-sm font-semibold md:flex">
-          {navLinks.map((link) => (
-            <NavDropdown
-              key={link.href}
-              href={link.href}
-              label={link.label}
-              subcategories={link.subcategories}
-            />
-          ))}
-        </nav>
+          <nav className="hidden gap-7 text-sm font-semibold md:flex">
+            {navLinks.map((link) => (
+              <NavDropdown
+                key={link.href}
+                href={link.href}
+                label={link.label}
+                subcategories={link.subcategories}
+              />
+            ))}
+          </nav>
 
-        <div className="flex items-center gap-3">
-          <SearchInput />
-          <CartTriggerButton />
+          <div className="flex items-center gap-3">
+            <SearchInput />
+            <CartTriggerButton />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }
