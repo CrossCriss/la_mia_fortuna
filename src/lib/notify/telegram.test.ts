@@ -247,3 +247,17 @@ describe("sendTelegramMessage", () => {
     expect(logged).not.toContain(FAKE_TOKEN);
   });
 });
+
+describe("sendTelegramMessage: розмітка", () => {
+  it("надсилає звичайний текст без parse_mode, тож HTML користувача не інтерпретується", async () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", FAKE_TOKEN);
+    vi.stubEnv("TELEGRAM_CHAT_ID", FAKE_CHAT);
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await sendTelegramMessage("Коментар: <script>alert(1)</script> <b>x</b>");
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, { body: string }])[1].body);
+    expect(body).not.toHaveProperty("parse_mode");
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+});

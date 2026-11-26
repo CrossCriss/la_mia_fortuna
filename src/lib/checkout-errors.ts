@@ -6,6 +6,7 @@ export const CHECKOUT_ERROR_CODES = {
   COD_TOO_MANY_PAIRS: "COD_TOO_MANY_PAIRS",
   CHECK_FAILED: "CHECK_FAILED",
   ADDRESS_INVALID: "ADDRESS_INVALID",
+  EMAIL_INVALID: "EMAIL_INVALID",
 } as const;
 
 export type CheckoutErrorCode =
@@ -34,5 +35,7 @@ export function getCheckoutErrorMessage(
       return "Не вдалося оформити замовлення. Оновіть сторінку і спробуйте ще раз. Якщо не вийде, напишіть нам у Telegram чи Viber.";
     case "ADDRESS_INVALID":
       return "Не вдалося знайти вибране відділення. Оберіть місто і відділення зі списку ще раз.";
+    case "EMAIL_INVALID":
+      return "Перевірте email: такої поштової адреси не існує. Або залиште поле порожнім.";
   }
 }

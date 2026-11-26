@@ -14,6 +14,7 @@ import { COD_WINDOW_MS, countPairs, evaluateCod } from "@/lib/orders/cod-policy"
 import { CHECKOUT_ERROR_CODES, codReasonToCode, getCheckoutErrorMessage } from "@/lib/checkout-errors";
 import { verifyNovaPoshtaAddress } from "@/lib/delivery/nova-poshta";
 import { phoneLookupVariants } from "@/lib/phone";
+import { checkEmailDomain } from "@/lib/email-domain";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,22 @@ export async function POST(request: Request) {
   }
   if (turnstile === "unavailable") {
     console.error("Checkout: Turnstile недоступний, замовлення пропущено без перевірки");
+  }
+
+  if (parsed.data.email) {
+    const emailCheck = await checkEmailDomain(parsed.data.email);
+    if (emailCheck === "invalid") {
+      return NextResponse.json(
+        {
+          error: getCheckoutErrorMessage(CHECKOUT_ERROR_CODES.EMAIL_INVALID, { onlineEnabled: isOnlinePaymentEnabled() }),
+          code: CHECKOUT_ERROR_CODES.EMAIL_INVALID,
+        },
+        { status: 400 }
+      );
+    }
+    if (emailCheck === "unavailable") {
+      console.error("Checkout: DNS-перевірку email не вдалося виконати, замовлення пропущено без перевірки");
+    }
   }
 
   if (parsed.data.paymentMethod === "ONLINE_CARD" && !isOnlinePaymentEnabled()) {

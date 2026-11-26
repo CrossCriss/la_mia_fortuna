@@ -207,3 +207,73 @@ describe("createOrderSchema", () => {
     );
   });
 });
+
+describe("аудит полів форми", () => {
+  const ok = (patch: Record<string, unknown>) => createOrderSchema.safeParse({ ...validOrder, ...patch }).success;
+
+  it.each(["Марія 7", "Марія 😀", "Марія", "   ", "Іван Петро Сидір Коваль", "<script> alert"])(
+    "ім'я %j відхиляється",
+    (customerName) => {
+      expect(ok({ customerName })).toBe(false);
+    },
+  );
+  it("ім'я: латиниця+кирилиця в одному слові зараз проходить (свідомо не змінено, не дірка)", () => {
+    expect(ok({ customerName: "Мariя Іваненко" })).toBe(true);
+  });
+  it("ім'я: хороші варіанти проходять", () => {
+    expect(ok({ customerName: "  Марія   Іваненко " })).toBe(true);
+    expect(ok({ customerName: "Іван Петро Коваль" })).toBe(true);
+  });
+
+  it.each(["0441234567", "+79161234567", "050123456", "050abcdefg", ""])("телефон %j відхиляється", (phone) => {
+    expect(ok({ phone })).toBe(false);
+  });
+  it("телефон +38 (050) 123-45-67 проходить", () => {
+    expect(ok({ phone: "+38 (050) 123-45-67" })).toBe(true);
+  });
+
+  it.each([
+    "politiksu@gmaildjx.ccn",
+    "a@gmail.com",
+    "first.last+tag@mail.example.com.ua",
+    "",
+  ])("email %j проходить схему", (email) => {
+    expect(ok({ email })).toBe(true);
+  });
+  it("email можна не передавати", () => {
+    expect(ok({ email: undefined })).toBe(true);
+  });
+  it.each([
+    "a@b.c",
+    "a@b.123",
+    "test@@gmail.com",
+    "test@gmail..com",
+    "te..st@gmail.com",
+    "тест@gmail.com",
+    "test@пошта.com",
+    "te st@gmail.com",
+    "test@gmail .com",
+    "test@gmail",
+    "@gmail.com",
+    "test@",
+    `${"a".repeat(95)}@b.com`,
+  ])("email %j відхиляється", (email) => {
+    expect(ok({ email })).toBe(false);
+  });
+
+  it.each(["", "К", "x".repeat(101)])("місто %j відхиляється", (shippingCity) => {
+    expect(ok({ shippingCity })).toBe(false);
+  });
+  it.each(["", "   ", "not-a-guid", "8d5a980d-391c-11dd-90d9-001a92567626x"])("Ref %j відхиляється", (ref) => {
+    expect(ok({ shippingCityRef: ref })).toBe(false);
+    expect(ok({ shippingWarehouseRef: ref })).toBe(false);
+  });
+  it("порожнє відділення відхиляється", () => {
+    expect(ok({ shippingWarehouse: "" })).toBe(false);
+  });
+
+  it("коментар: <script> проходить як текст, 501 символ ні", () => {
+    expect(ok({ comment: "<script>alert(1)</script>" })).toBe(true);
+    expect(ok({ comment: "а".repeat(501) })).toBe(false);
+  });
+});

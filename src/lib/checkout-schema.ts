@@ -33,6 +33,17 @@ const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 const PHONE_ERROR = "Вкажіть український мобільний номер, наприклад 050 123 45 67";
 
+const EMAIL_ERROR = "Некоректний email";
+// ASCII-адреса: локальна частина без пробілів і подвійних крапок, домен з
+// латинських міток і буквений TLD від 2 символів. Порожнє значення дозволене
+// (поле необов'язкове). Чи існує домен насправді, перевіряє сервер (email-domain.ts).
+const EMAIL_REGEX =
+  /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
+
+function isPlausibleEmail(value: string): boolean {
+  return value === "" || (!value.includes("..") && EMAIL_REGEX.test(value));
+}
+
 export const checkoutFormSchema = z.object({
   customerName: customerNameSchema,
   phone: z
@@ -50,8 +61,8 @@ export const checkoutFormSchema = z.object({
   email: z
     .string()
     .trim()
-    .max(100)
-    .email("Некоректний email")
+    .max(100, EMAIL_ERROR)
+    .refine(isPlausibleEmail, EMAIL_ERROR)
     .optional()
     .or(z.literal("")),
   shippingCity: z.string().trim().min(2, "Вкажіть місто").max(100),

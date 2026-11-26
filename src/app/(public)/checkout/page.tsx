@@ -9,6 +9,7 @@ import { formatPrice } from "@/lib/format-price";
 import { checkoutFormSchema, type CheckoutFormInput } from "@/lib/checkout-schema";
 import { COD_MAX_PAIRS, countPairs } from "@/lib/orders/cod-policy";
 import { getCheckoutErrorMessage } from "@/lib/checkout-errors";
+import { suggestEmailFix } from "@/lib/email-typo";
 import { CheckoutBlockedNotice } from "@/components/checkout/CheckoutBlockedNotice";
 import { formatVariantLabel } from "@/lib/color-print";
 import { CityWarehouseFields } from "@/components/checkout/CityWarehouseFields";
@@ -63,6 +64,7 @@ export default function CheckoutPage() {
 
   const [form, setForm] = useState<CheckoutFormInput>(initialForm);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Поле-пастка для ботів: людина його не бачить і не заповнює.
@@ -178,6 +180,10 @@ export default function CheckoutPage() {
           setErrors((prev) => ({ ...prev, shippingWarehouseRef: message }));
           return;
         }
+        if (code === "EMAIL_INVALID") {
+          setErrors((prev) => ({ ...prev, email: message }));
+          return;
+        }
         if (code === "CHECK_FAILED") {
           setBlockedMessage(message);
           return;
@@ -254,10 +260,31 @@ export default function CheckoutPage() {
               type="email"
               maxLength={100}
               value={form.email ?? ""}
-              onChange={(event) => updateField("email", event.target.value)}
+              onChange={(event) => {
+                updateField("email", event.target.value);
+                setEmailSuggestion(null);
+              }}
+              onBlur={(event) => setEmailSuggestion(suggestEmailFix(event.target.value))}
               className={inputClass(errors.email)}
               placeholder="mail@example.com"
             />
+            {emailSuggestion && (
+              <span className="mt-1 block text-xs text-neutral-600">
+                Можливо, ви мали на увазі{" "}
+                <button
+                  type="button"
+                  className="font-medium text-accent underline"
+                  onClick={() => {
+                    updateField("email", emailSuggestion);
+                    setErrors((prev) => ({ ...prev, email: undefined }));
+                    setEmailSuggestion(null);
+                  }}
+                >
+                  {emailSuggestion}
+                </button>
+                ?
+              </span>
+            )}
           </Field>
 
           <CityWarehouseFields
