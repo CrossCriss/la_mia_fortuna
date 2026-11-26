@@ -41,6 +41,20 @@ export default function PrivacyPage() {
             Службі доставки (Нова Пошта) та платіжній системі — виключно в обсязі, необхідному
             для виконання замовлення.
           </p>
+          <p className="mt-2">
+            Для захисту форми оформлення замовлення від ботів ми використовуємо Cloudflare
+            Turnstile. Під час перевірки Cloudflare обробляє технічні дані вашого браузера та
+            пристрою (зокрема IP-адресу). Детальніше:{" "}
+            <a
+              href="https://www.cloudflare.com/turnstile-privacy-policy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Cloudflare Turnstile Privacy Addendum
+            </a>
+            .
+          </p>
         </section>
 
         <section>
