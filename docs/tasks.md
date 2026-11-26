@@ -620,7 +620,7 @@
 
 ### P-03. Кэширование публичных чтений (условная)
 
-- Статус: TODO (выполнять только после замера в Q-03: если TTFB страницы товара на деплое больше 800 мс)
+- Статус: НЕ НУЖНА (2026-11-26: замер на fortuna-shoes.com.ua, TTFB страницы товара 0.30-0.66 с, главной 0.24-0.30 с, порог 800 мс не превышен; вернуться, если после наполнения каталога TTFB вырастет)
 - Цель: страница товара и главная не ходят в БД на каждый просмотр.
 - Файлы: `src/lib/public-data.ts` (новый), `src/lib/site-settings.ts`, `src/components/layout/Header.tsx`, `src/app/(public)/product/[productSlug]/page.tsx`, `src/app/(public)/page.tsx`, `src/app/api/admin/products/route.ts`, `src/app/api/admin/products/[id]/route.ts`, `src/app/api/admin/settings/route.ts`, `src/app/api/admin/import/route.ts`.
 - Входы и выходы:
