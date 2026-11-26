@@ -196,7 +196,7 @@ export default async function ProductPage({
           </a>
 
           {product.description && (
-            <p className="mt-8 text-[15px] leading-relaxed text-ink-soft">{product.description}</p>
+            <p className="mt-8 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{product.description}</p>
           )}
 
           {product.fabricComposition && (

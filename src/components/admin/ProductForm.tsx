@@ -292,6 +292,9 @@ export function ProductForm({
             rows={3}
             className={inputClass()}
           />
+          <span className="mt-1 block text-xs text-neutral-500">
+            Можна розбивати на абзаци клавішею Enter.
+          </span>
         </Field>
 
         <div className="flex flex-wrap gap-6">
