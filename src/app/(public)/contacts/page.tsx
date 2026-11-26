@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { PlaceholderNotice } from "@/components/ui/PlaceholderNotice";
 import { SITE } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -7,8 +6,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contacts" },
 };
 
-// Email і графік роботи клієнтка ще не надала — позначено заглушкою,
-// телефон/Instagram — реальні дані з макета (Main.dc.html, футер).
 export default function ContactsPage() {
   const sellerFields = [
     { label: "Найменування", value: SITE.seller.legalName },
@@ -20,7 +17,6 @@ export default function ContactsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="font-display text-[36px] font-semibold text-ink">Контакти</h1>
-      <PlaceholderNotice />
       <dl className="space-y-3 text-sm text-ink-soft">
         <div>
           <dt className="font-medium text-ink">Viber, Telegram</dt>
