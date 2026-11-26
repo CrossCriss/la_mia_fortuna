@@ -11,12 +11,12 @@ export const SITE = {
   telegramUrl: "https://t.me/+380667901044",
   instagramUrl: "https://www.instagram.com/la_mia_fortuna_shoes",
   instagramHandle: "@la_mia_fortuna_shoes",
-  // Реквізити продавця заповнює клієнтка; поки порожньо.
+  // Реквізити продавця (ФОП клієнтки).
   seller: {
-    legalName: "",
-    taxId: "",
-    address: "",
-    email: "",
+    legalName: "ФОП Афанасьєва Оксана Анатоліївна",
+    taxId: "2275621028",
+    address: "м. Харків, в'їзд Енді Ворхола, 27",
+    email: "lerafortuna1992@gmail.com",
   },
 } as const;
 
