@@ -7,6 +7,7 @@ import { buildOrderItems, generateOrderNumber } from "@/lib/orders/build-order";
 import type { PaymentInit } from "@/lib/payment/types";
 import { getSiteUrl } from "@/lib/site-config";
 import { formatNewOrderMessage, sendTelegramMessage } from "@/lib/notify/telegram";
+import { sendOrderEmail } from "@/lib/notify/email";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { checkFormGuard } from "@/lib/antibot/form-guard";
 import { verifyTurnstileToken } from "@/lib/antibot/turnstile";
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
     sendTelegramMessage(formatNewOrderMessage(order, `${getSiteUrl()}/admin/orders/${order.id}`));
 
   if (!isOnlineCard) {
-    await notifyNewOrder();
+    await Promise.all([notifyNewOrder(), sendOrderEmail(order)]);
     return NextResponse.json(order, { status: 201 });
   }
 
@@ -255,6 +256,6 @@ export async function POST(request: Request) {
 
   // Якщо рахунок створити не вдалося (502 вище), клієнт бачить помилку і
   // замовлення лишається неоплаченим - сповіщення в такому випадку не шлемо.
-  await notifyNewOrder();
+  await Promise.all([notifyNewOrder(), sendOrderEmail(order)]);
   return NextResponse.json({ ...order, paymentInit }, { status: 201 });
 }

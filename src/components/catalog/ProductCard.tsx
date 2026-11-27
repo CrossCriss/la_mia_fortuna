@@ -13,10 +13,12 @@ import { isRealSizeName, formatVariantLabel } from "@/lib/color-print";
 import { track } from "@/lib/analytics/track";
 import type { Variant } from "@/components/product/ProductOptions";
 import type { HomeBadge } from "@/lib/home-badges";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 
 const CARD_SIZES = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw";
 
 type ProductCardProps = {
+  productId?: string;
   slug: string;
   name: string;
   price: number;
@@ -32,6 +34,7 @@ type ProductCardProps = {
 };
 
 export function ProductCard({
+  productId,
   slug,
   name,
   price,
@@ -163,6 +166,7 @@ export function ProductCard({
             </div>
           )
         )}
+        {productId && <FavoriteButton productId={productId} productName={name} variant="card" />}
       </div>
 
       <div className="mt-2.5 space-y-1.5">

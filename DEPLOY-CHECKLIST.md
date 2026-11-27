@@ -72,6 +72,7 @@ Production і Preview мають окремі змінні. Прод-`DATABASE_U
 | `NOVA_POSHTA_API_KEY` | кабінет Нової Пошти |
 | `TELEGRAM_BOT_TOKEN` | токен бота з @BotFather (`CREDENTIALS.md`, розділ "Telegram-бот"). Не публікувати |
 | `TELEGRAM_CHAT_ID` | ID Telegram-групи клієнтки, від'ємне число. Бот має бути в групі |
+| `RESEND_API_KEY` / `EMAIL_FROM` | листи покупцям (Resend, `CREDENTIALS.md`, розділ 9). Задавати разом або не задавати. Порожньо - листи вимкнені, замовлення працюють. `EMAIL_FROM` - адреса на домені, підтвердженому в Resend (у продакшені не на `resend.dev`) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile, Site Key (`CREDENTIALS.md`, розділ 8). Порожньо - захист чекауту вимкнено. Production і Preview окремо. Вшивається при збірці: після зміни Redeploy |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile, Secret Key (`CREDENTIALS.md`, розділ 8). Тільки у Vercel, не публікувати. Задавати разом з `NEXT_PUBLIC_TURNSTILE_SITE_KEY` або не задавати |
 | `NEXT_PUBLIC_GA4_ID` | Measurement ID виду `G-XXXXXXXXXX`. Порожньо, доки немає ID. Після зміни - Redeploy |
@@ -114,6 +115,7 @@ Production і Preview мають окремі змінні. Прод-`DATABASE_U
    - [ ] замовлення з оплатою карткою (на **тестовому** токені Monobank) →
          оплата → статус замовлення оновився;
    - [ ] автокомпліт міст/відділень Нової Пошти працює;
+   - [ ] якщо задано `RESEND_API_KEY` і `EMAIL_FROM`: на тестовому замовленні покупцю приходить лист про замовлення (перевірити на свою адресу)
    - [ ] мобільна версія: кошик, чекаут, кнопки зв'язку.
 8. [ ] `BASE_URL=https://<домен> npm run smoke` - має завершитися з кодом 0
       (скрипт нічого не пише в БД).

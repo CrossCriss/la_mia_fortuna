@@ -84,6 +84,22 @@ if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) {
   warnings.push("Turnstile не задано, захист чекауту від ботів вимкнено");
 }
 
+// Листи покупцям (Resend): обидві змінні або жодна.
+const resendApiKey = value("RESEND_API_KEY");
+const emailFrom = value("EMAIL_FROM");
+if (Boolean(resendApiKey) !== Boolean(emailFrom)) {
+  errors.push("Resend: задайте RESEND_API_KEY і EMAIL_FROM разом або жодного");
+} else if (!resendApiKey) {
+  warnings.push("Resend не задано, листи покупцям вимкнені");
+} else {
+  if (!emailFrom.includes("@")) {
+    errors.push("EMAIL_FROM має містити адресу з символом @");
+  }
+  if (isProd && emailFrom.toLowerCase().includes("resend.dev")) {
+    errors.push("EMAIL_FROM у продакшені має бути на власному домені");
+  }
+}
+
 const mode = isProd ? " (режим --prod)" : "";
 
 if (errors.length === 0 && warnings.length === 0) {

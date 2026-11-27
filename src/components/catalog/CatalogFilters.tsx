@@ -72,7 +72,8 @@ export function CatalogFilters({
   }
 
   function resetFilters() {
-    router.push(pathname);
+    const sort = searchParams.get("sort");
+    router.push(sort ? `${pathname}?${new URLSearchParams({ sort }).toString()}` : pathname);
   }
 
   return (
@@ -177,12 +178,16 @@ export function CatalogFilters({
 
         <div className="mb-8">
           <p className="mb-3 text-[13px] font-bold uppercase tracking-wide text-ink">Ціна, грн</p>
-          <form onSubmit={handlePriceSubmit} className="flex items-center gap-2">
+          <form
+            key={minPrice + "|" + maxPrice}
+            onSubmit={handlePriceSubmit}
+            className="flex items-center gap-2">
             <input
               name="minPrice"
               defaultValue={minPrice}
               placeholder="від 2 300"
               inputMode="numeric"
+              pattern="[0-9 ]*"
               className="min-h-11 w-full min-w-0 border border-border bg-surface px-3 text-sm transition-colors duration-150 ease-out focus:border-accent focus:outline-none"
             />
             <input
@@ -190,6 +195,7 @@ export function CatalogFilters({
               defaultValue={maxPrice}
               placeholder="до 2 900"
               inputMode="numeric"
+              pattern="[0-9 ]*"
               className="min-h-11 w-full min-w-0 border border-border bg-surface px-3 text-sm transition-colors duration-150 ease-out focus:border-accent focus:outline-none"
             />
             <button

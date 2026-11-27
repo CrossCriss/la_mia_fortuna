@@ -45,7 +45,16 @@ export default async function AdminOrdersPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Замовлення</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Замовлення</h1>
+        <a
+          href={status ? `/api/admin/orders/export?status=${status}` : "/api/admin/orders/export"}
+          download
+          className="rounded-full border border-neutral-300 px-3 py-1 text-sm text-neutral-600 hover:border-neutral-400"
+        >
+          Завантажити CSV
+        </a>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <FilterLink label="Усі" href="/admin/orders" active={!status} />

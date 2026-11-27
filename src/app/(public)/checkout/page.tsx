@@ -255,7 +255,7 @@ export default function CheckoutPage() {
             />
           </Field>
 
-          <Field label="Email (необов'язково)" error={errors.email}>
+          <Field label="Email (необов'язково, надішлемо деталі замовлення)" error={errors.email}>
             <input
               type="email"
               maxLength={100}

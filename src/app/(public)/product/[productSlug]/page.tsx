@@ -10,6 +10,7 @@ import { buildProductWhereForCategory } from "@/lib/catalog";
 import { SITE, getSiteUrl } from "@/lib/site-config";
 import { buildProductDescription, buildProductJsonLd } from "@/lib/seo";
 import { buildGalleryImages } from "@/lib/product-gallery";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 import { TrackViewItem } from "@/components/analytics/TrackViewItem";
 
 export const dynamic = "force-dynamic";
@@ -194,6 +195,8 @@ export default async function ProductPage({
           >
             Замовити в Telegram
           </a>
+
+          <FavoriteButton productId={product.id} productName={product.name} variant="page" />
 
           {product.description && (
             <p className="mt-8 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{product.description}</p>

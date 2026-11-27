@@ -1,10 +1,20 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { findCategoryBySlug, buildProductWhereForCategory, getPrintFilterData } from "@/lib/catalog";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { CatalogFilters } from "@/components/catalog/CatalogFilters";
+import { CatalogSortSelect } from "@/components/catalog/CatalogSortSelect";
+import {
+  parseSort,
+  parsePriceRange,
+  buildEffectivePriceWhere,
+  buildOrderBy,
+  sortIdsByEffectivePrice,
+  paginateIds,
+} from "@/lib/catalog-params";
 import { CatalogPagination } from "@/components/catalog/CatalogPagination";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +60,7 @@ export default async function CategoryPage({
     minPrice?: string;
     maxPrice?: string;
     page?: string;
+    sort?: string;
   };
 }) {
   const category = await findCategoryBySlug(params.categorySlug);
@@ -61,8 +72,10 @@ export default async function CategoryPage({
   const selectedSizes = parseListParam(searchParams.size);
   const selectedColors = parseListParam(searchParams.color);
   const selectedPrints = parseListParam(searchParams.print);
-  const minPrice = searchParams.minPrice ? Number(searchParams.minPrice) : undefined;
-  const maxPrice = searchParams.maxPrice ? Number(searchParams.maxPrice) : undefined;
+  const sort = parseSort(searchParams.sort);
+  const priceWhere = buildEffectivePriceWhere(
+    parsePriceRange(searchParams.minPrice, searchParams.maxPrice),
+  );
   const requestedPage = Math.max(1, Number(searchParams.page) || 1);
 
   // availableSizes/availableColors/printFilterData обидва рахуються від
@@ -89,58 +102,87 @@ export default async function CategoryPage({
     .map((slug) => childSlugToId.get(slug))
     .filter((id): id is string => Boolean(id));
 
-  const filteredWhere = {
-    ...baseWhere,
-    ...(selectedCategoryIds.length ? { categoryId: { in: selectedCategoryIds } } : {}),
-    ...(selectedSizes.length
-      ? { variants: { some: { size: { value: { in: selectedSizes } } } } }
-      : {}),
-    ...(selectedColors.length
-      ? { variants: { some: { color: { name: { in: selectedColors } } } } }
-      : {}),
-    ...(selectedPrints.length ? { id: { in: printFilterData.matchedProductIds } } : {}),
-    ...(minPrice !== undefined || maxPrice !== undefined
-      ? { price: { gte: minPrice, lte: maxPrice } }
-      : {}),
-  };
-
-  // Продукти на "оптимістичній" (запитаній) сторінці запитуємо в тому ж
-  // Promise.all, що й count — один раунд-трип до Supabase замість двох
-  // послідовних. Правильним він виявляється майже завжди; рідкісний
-  // випадок "page" за межами діапазону (ручна зміна URL) обробляється
-  // нижче окремим (другим) запитом.
-  const [totalCount, optimisticProducts] = await Promise.all([
-    prisma.product.count({ where: filteredWhere }),
-    prisma.product.findMany({
-      where: filteredWhere,
-      include: {
-        images: { orderBy: { position: "asc" }, take: 2 },
-        variants: { include: { size: true, color: true } },
+  const conditions: Prisma.ProductWhereInput[] = [];
+  if (selectedCategoryIds.length) conditions.push({ categoryId: { in: selectedCategoryIds } });
+  if (selectedSizes.length || selectedColors.length) {
+    conditions.push({
+      variants: {
+        some: {
+          ...(selectedSizes.length
+            ? { size: { value: { in: selectedSizes } }, stock: { gt: 0 } }
+            : {}),
+          ...(selectedColors.length ? { color: { name: { in: selectedColors } } } : {}),
+        },
       },
-      orderBy: { createdAt: "desc" },
-      skip: (requestedPage - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      relationLoadStrategy: "join",
-    }),
-  ]);
+    });
+  }
+  if (selectedPrints.length) conditions.push({ id: { in: printFilterData.matchedProductIds } });
+  if (priceWhere) conditions.push(priceWhere);
+  const filteredWhere: Prisma.ProductWhereInput = { AND: [baseWhere, ...conditions] };
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const page = Math.min(requestedPage, totalPages);
+  const productInclude = {
+    images: { orderBy: { position: "asc" }, take: 2 },
+    variants: { include: { size: true, color: true } },
+  } satisfies Prisma.ProductInclude;
 
-  const rawProducts =
-    page === requestedPage
-      ? optimisticProducts
-      : await prisma.product.findMany({
-          where: filteredWhere,
-          include: {
-            images: { orderBy: { position: "asc" }, take: 2 },
-            variants: { include: { size: true, color: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * PAGE_SIZE,
-          take: PAGE_SIZE,
+  let totalCount: number;
+  let page: number;
+  let totalPages: number;
+  let rawProducts: Prisma.ProductGetPayload<{ include: typeof productInclude }>[];
+
+  const orderBy = buildOrderBy(sort);
+  if (orderBy) {
+    // Продукти на "оптимістичній" (запитаній) сторінці запитуємо в тому ж
+    // Promise.all, що й count - один раунд-трип до БД. Рідкісний випадок
+    // "page" за межами діапазону обробляється другим запитом.
+    const [count, optimisticProducts] = await Promise.all([
+      prisma.product.count({ where: filteredWhere }),
+      prisma.product.findMany({
+        where: filteredWhere,
+        include: productInclude,
+        orderBy,
+        skip: (requestedPage - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        relationLoadStrategy: "join",
+      }),
+    ]);
+    totalCount = count;
+    totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    page = Math.min(requestedPage, totalPages);
+    rawProducts =
+      page === requestedPage
+        ? optimisticProducts
+        : await prisma.product.findMany({
+            where: filteredWhere,
+            include: productInclude,
+            orderBy,
+            skip: (page - 1) * PAGE_SIZE,
+            take: PAGE_SIZE,
+            relationLoadStrategy: "join",
+          });
+  } else {
+    // Сортування за ефективною ціною (акційна або звичайна): рахуємо в коді.
+    const rows = await prisma.product.findMany({
+      where: filteredWhere,
+      select: { id: true, price: true, discountPrice: true, createdAt: true },
+    });
+    const ids = sortIdsByEffectivePrice(rows, sort === "price_asc" ? "asc" : "desc");
+    totalCount = ids.length;
+    const paged = paginateIds(ids, requestedPage, PAGE_SIZE);
+    page = paged.page;
+    totalPages = paged.totalPages;
+    const found = paged.pageIds.length
+      ? await prisma.product.findMany({
+          where: { id: { in: paged.pageIds } },
+          include: productInclude,
           relationLoadStrategy: "join",
-        });
+        })
+      : [];
+    const byId = new Map(found.map((product) => [product.id, product]));
+    rawProducts = paged.pageIds
+      .map((id) => byId.get(id))
+      .filter((product): product is NonNullable<typeof product> => Boolean(product));
+  }
 
   const products = rawProducts.map((product) => ({
     id: product.id,
@@ -175,7 +217,10 @@ export default async function CategoryPage({
         <h1 className="font-display text-[44px] font-semibold leading-[1.02] text-ink md:text-[56px]">
           {category.name}
         </h1>
-        <span className="text-[15px] text-ink-soft">{totalCount} моделей</span>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="text-[15px] text-ink-soft">{totalCount} моделей</span>
+          <CatalogSortSelect />
+        </div>
       </div>
 
       <div className="mt-8 flex flex-col gap-10 md:flex-row">
