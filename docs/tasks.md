@@ -1314,7 +1314,7 @@
 
 ### U-11. Иконка "Обране" в шапке и страница /favorites
 
-- Статус: TODO
+- Статус: DONE (2026-11-27, ревью PASS со 2 круга: переполнение шапки на 360px исправлено, логотип на мобильном 18/24px)
 - Цель: из шапки видно, сколько товаров в "Обраному", и открывается страница с ними; удаленные и скрытые товары исчезают из списка сами.
 - Файлы: `src/components/favorites/FavoritesLink.tsx` (новый), `src/components/favorites/FavoritesList.tsx` (новый), `src/app/(public)/favorites/page.tsx` (новый), `src/components/layout/Header.tsx`, `src/components/layout/MobileNav.tsx`, `src/app/robots.ts`.
 - Входы и выходы:
@@ -1335,7 +1335,7 @@
 
 ### U-12. Блок "Ви нещодавно переглядали"
 
-- Статус: TODO
+- Статус: DONE (2026-11-27, ревью PASS)
 - Цель: на странице товара и в корзине покупательница видит товары, которые уже смотрела, и легко к ним возвращается.
 - Файлы: `src/components/product/RecentlyViewed.tsx` (новый), `src/app/(public)/product/[productSlug]/page.tsx`, `src/app/(public)/cart/page.tsx`.
 - Входы и выходы:

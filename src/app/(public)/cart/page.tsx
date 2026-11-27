@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCartStore } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/format-price";
 import { PlaceholderImage } from "@/components/ui/PlaceholderImage";
+import { RecentlyViewedSection } from "@/components/product/RecentlyViewed";
 import { formatVariantLabel } from "@/lib/color-print";
 
 export default function CartPage() {
@@ -79,6 +80,8 @@ export default function CartPage() {
           </div>
         </div>
       )}
+
+      <RecentlyViewedSection limit={4} />
     </div>
   );
 }

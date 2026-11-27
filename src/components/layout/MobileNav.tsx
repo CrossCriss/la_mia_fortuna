@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useFavoritesStore } from "@/lib/favorites-store";
+import { useHydrated } from "@/lib/use-hydrated";
 
 type SubCategory = { slug: string; name: string };
 type NavLink = { href: string; label: string; subcategories?: SubCategory[] };
@@ -9,6 +11,8 @@ type NavLink = { href: string; label: string; subcategories?: SubCategory[] };
 export function MobileNav({ links }: { links: NavLink[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedHref, setExpandedHref] = useState<string | null>(null);
+  const hydrated = useHydrated();
+  const favoritesCount = useFavoritesStore((state) => state.ids.length);
 
   function close() {
     setIsOpen(false);
@@ -99,6 +103,15 @@ export function MobileNav({ links }: { links: NavLink[] }) {
                 </div>
               );
             })}
+            <div className="border-t border-border/60">
+              <Link
+                href="/favorites"
+                onClick={close}
+                className="block py-2.5 text-ink/70 transition hover:text-ink"
+              >
+                Обране{hydrated && favoritesCount > 0 ? ` (${favoritesCount})` : ""}
+              </Link>
+            </div>
           </nav>
         </div>
       )}

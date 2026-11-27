@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CartTriggerButton } from "@/components/cart/CartTriggerButton";
+import { FavoritesLink } from "@/components/favorites/FavoritesLink";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { NavDropdown } from "@/components/layout/NavDropdown";
 import { SearchInput } from "@/components/layout/SearchInput";
@@ -48,13 +49,13 @@ export async function Header() {
       </div>
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
         <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <MobileNav links={navLinks} />
             <Link href="/" className="flex flex-col leading-none">
-              <span className="font-display text-[28px] font-semibold tracking-[0.2em] text-ink">
+              <span className="font-display text-[18px] font-semibold tracking-[0.2em] min-[360px]:text-[24px] sm:text-[28px] text-ink">
                 FORTUNA
               </span>
-              <span className="mt-1 text-[9px] tracking-[0.5em] text-ink-soft">LA MIA · SHOES</span>
+              <span className="mt-1 text-[7px] tracking-[0.3em] min-[360px]:text-[8px] min-[360px]:tracking-[0.4em] sm:text-[9px] sm:tracking-[0.5em] text-ink-soft">LA MIA · SHOES</span>
             </Link>
           </div>
 
@@ -69,8 +70,9 @@ export async function Header() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <SearchInput />
+            <FavoritesLink />
             <CartTriggerButton />
           </div>
         </div>

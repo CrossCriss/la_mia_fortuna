@@ -11,6 +11,7 @@ import { SITE, getSiteUrl } from "@/lib/site-config";
 import { buildProductDescription, buildProductJsonLd } from "@/lib/seo";
 import { buildGalleryImages } from "@/lib/product-gallery";
 import { FavoriteButton } from "@/components/favorites/FavoriteButton";
+import { RecentlyViewedSection, TrackRecentlyViewed } from "@/components/product/RecentlyViewed";
 import { TrackViewItem } from "@/components/analytics/TrackViewItem";
 
 export const dynamic = "force-dynamic";
@@ -241,6 +242,8 @@ export default async function ProductPage({
           </div>
         </section>
       )}
+      <TrackRecentlyViewed productId={product.id} />
+      <RecentlyViewedSection excludeId={product.id} limit={8} />
     </div>
   );
 }
