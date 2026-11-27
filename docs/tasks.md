@@ -40,7 +40,8 @@
 | 6. Скорость на мобильном | P-01 - P-03 | 3 |
 | 7. Документация, тесты, приемка | D-01, D-02, Q-01 - Q-03 | 5 |
 | 8. Защита чекаута от фейковых заказов | AS-01 - AS-15 | 15 |
-| Всего | | 54 |
+| 9. Удобство покупателя и админки | U-01 - U-16 | 16 |
+| Всего | | 70 |
 
 Параллельные (без зависимостей): F-01, F-02, F-03, F-06, C-03, S-05; этап 8: AS-01, AS-03, AS-04, AS-05, AS-06, AS-07, AS-14.
 
@@ -1071,3 +1072,367 @@
 - [ ] Реальные товары через админку (после гайда D-01): фото и своя размерная сетка к каждому товару; у 5 текущих карточек заменить временное описание и цену 2500 (передано клиентке 2026-11-27).
 
 Блокеры запуска рекламы: C-04 выполнена для privacy, oferta, delivery, returns, contacts; пройден `docs/acceptance.md`; заданы ID Pixel и GA4.
+
+
+---
+
+## Этап 9. Доработки магазина (спроектировано 2026-11-27)
+
+Обоснование решений: `docs/architecture.md`, раздел 9. Правила для исполнителей, `БАЗА` и `ТИРЕ` те же, что в начале файла (раздел "Правила для исполнителей" и этап 8). Промокоды не трогать. Миграций БД в этапе нет.
+
+Важно до старта: U-13 выполнять только после ответа владельца на вопрос В-1 (остаток в проекте это флаг "є/немає", а не количество, см. архитектуру 9.6). U-05 учитывает ответ на В-2.
+
+Сводка этапа:
+
+| ID | Задача | Исполнитель / модель | Зависимости |
+| --- | --- | --- | --- |
+| U-01 | Страницы 404 и ошибки на украинском | implementer-lite / haiku | нет, параллельная |
+| U-02 | Чистая логика сортировки и фильтра цены | implementer / sonnet | нет, параллельная |
+| U-03 | Сортировка и цена на странице категории | implementer / sonnet | U-02 |
+| U-04 | Модуль письма покупательнице (Resend) | implementer / sonnet | нет, параллельная |
+| U-05 | Письмо в POST /api/orders | implementer / sonnet | U-04 |
+| U-06 | Переменные и инструкции для писем | implementer-lite / haiku | U-04 |
+| U-07 | Политика конфиденциальности: Resend и localStorage | implementer-lite / haiku (ревью opus) | нет, параллельная |
+| U-08 | Сторы "Обране" и "Нещодавно переглянуті" | implementer-lite / haiku | нет, параллельная |
+| U-09 | API карточек по id и клиентский хук | implementer / sonnet | нет, параллельная |
+| U-10 | Сердечко на карточке и странице товара | implementer / sonnet | U-08 |
+| U-11 | Иконка "Обране" в шапке и страница /favorites | implementer / sonnet | U-08, U-09, U-10 |
+| U-12 | Блок "Ви нещодавно переглядали" | implementer / sonnet | U-08, U-09, U-10 |
+| U-13 | Telegram: напоминание отметить проданный размер | implementer / sonnet | U-05, ответ на В-1 |
+| U-14 | Чистая сборка CSV заказов | implementer / sonnet | нет, параллельная |
+| U-15 | Выгрузка CSV: роут и кнопка в админке | implementer / sonnet | U-14 |
+| U-16 | Документация этапа 9 | implementer-lite / haiku | все остальные задачи этапа |
+
+Группы параллельности (файлы внутри группы не пересекаются):
+
+- Волна 1: U-01, U-02, U-04, U-07, U-08, U-09, U-14.
+- Волна 2: U-03, U-05, U-06, U-10, U-15.
+- Волна 3: U-11, U-12 (U-13 отменена).
+- Волна 4: U-16.
+
+Цепочки по общим файлам (для оркестратора):
+
+- `src/app/api/orders/route.ts`: U-05 -> U-13
+- `src/app/(public)/product/[productSlug]/page.tsx`: U-10 -> U-12
+- `src/app/robots.ts`: только U-11
+- `CLAUDE.md`, `DEPLOY-CHECKLIST.md`, `CREDENTIALS.md`, `docs/acceptance.md`: U-06 -> U-16
+
+### U-01. Страницы 404 и ошибки на украинском
+
+- Статус: DONE (2026-11-27, ревью PASS; главная и скелетон перенесены в (public)/(home), чтобы 404 отдавал статус 404)
+- Цель: вместо английской страницы Next.js покупательница видит страницу в стиле сайта (шапка, подвал) с понятным текстом и ссылками в каталог и на главную.
+- Файлы: `src/components/errors/ErrorScreen.tsx` (новый), `src/app/(public)/not-found.tsx` (новый), `src/app/(public)/error.tsx` (новый), `src/app/(public)/[...slug]/page.tsx` (новый), `src/app/not-found.tsx` (новый), `src/app/global-error.tsx` (новый).
+- Входы и выходы:
+  - `ErrorScreen` (серверный, без хуков) пропсы `{ title: string; text: string; action?: React.ReactNode }`: заголовок `font-display` как на странице категории, текст `text-ink-soft`, две ссылки-кнопки "До каталогу" (`/catalog`) и "На головну" (`/`), стиль кнопок как у основных кнопок сайта (`bg-ink text-background` и обводка `border-ink`); `action` выводится перед ссылками.
+  - `(public)/not-found.tsx`: `ErrorScreen` с заголовком "Сторінку не знайдено" и текстом "Можливо, товар уже продано або посилання застаріло. Перегляньте каталог, там багато іншого гарного взуття." Срабатывает на `notFound()` из страниц товара и категории и рендерится внутри шапки и подвала.
+  - `(public)/[...slug]/page.tsx`: только `notFound()`. Нужен, чтобы любой несуществующий адрес тоже показывал страницу 404 с шапкой и подвалом (корневой `not-found.tsx` Next.js рендерит без layout группы `(public)`). Статические маршруты и `/` им не перехватываются.
+  - `(public)/error.tsx`: клиентский (`"use client"`), пропсы `{ error, reset }`; `useEffect` с `console.error(error)`; `ErrorScreen` с заголовком "Щось пішло не так", текстом "Ми вже знаємо про проблему. Спробуйте оновити сторінку або поверніться пізніше." и кнопкой "Спробувати ще раз" (`reset()`). Так как `ErrorScreen` серверный и без хуков, его можно рендерить из клиентского компонента.
+  - `src/app/not-found.tsx` (запасной, для `notFound()` вне группы `(public)`, например в админке): тот же `ErrorScreen`, без шапки.
+  - `src/app/global-error.tsx`: клиентский, свои `<html lang="uk">` и `<body>`, импорт `./globals.css` (проверить точное имя файла стилей в `src/app/layout.tsx`), заголовок "Щось пішло не так", кнопка "Спробувати ще раз" и ссылка на главную обычным `<a href="/">`.
+  - Метаданные `not-found`: `title: "Сторінку не знайдено"`. Тексты без длинных тире.
+- Тесты: не нужны (разметка без логики).
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - При запущенном `npm run start`: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/takoi-storinky-nemae` печатает `404`; `curl -s http://localhost:3000/takoi-storinky-nemae | grep -c "Сторінку не знайдено"` печатает 1 или больше; `curl -s http://localhost:3000/product/nemaie-takoho-tovaru | grep -c "Сторінку не знайдено"` печатает 1 или больше; `curl -s http://localhost:3000/takoi-storinky-nemae | grep -c "This page could not be found"` печатает 0.
+  - `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` и `.../catalog` печатают `200` (catch-all не перехватил существующие маршруты).
+- Исполнитель: implementer-lite
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### U-02. Чистая логика сортировки и фильтра цены
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: вся логика разбора параметров, условия цены и сортировки по фактической цене в одном модуле с тестами, без Prisma-клиента и сети.
+- Файлы: `src/lib/catalog-params.ts` (новый), `src/lib/catalog-params.test.ts` (новый).
+- Входы и выходы:
+  - Модуль без серверных импортов (только `import type { Prisma } from "@prisma/client"`), чтобы его мог импортировать клиентский компонент.
+  - `CATALOG_SORTS = ["default", "price_asc", "price_desc", "new"] as const`, `type CatalogSort`.
+  - `SORT_LABELS: Record<CatalogSort, string>`: `default` "Рекомендовані", `price_asc` "Спочатку дешевші", `price_desc` "Спочатку дорожчі", `new` "Новинки".
+  - `parseSort(value: string | undefined): CatalogSort`: неизвестное или пустое -> `"default"`.
+  - `parsePriceRange(min?: string, max?: string): { min?: number; max?: number }`: пробелы внутри убираются (`"2 300"` -> 2300); принимаются только целые числа из цифр от 0 до 1 000 000; пустое, нечисловое, отрицательное, дробное, больше лимита -> `undefined`; если заданы оба и `min > max`, значения меняются местами.
+  - `buildEffectivePriceWhere(range): Prisma.ProductWhereInput | undefined`: фактическая цена = `discountPrice ?? price` (как в `build-order.ts` и `ProductOptions`). Без границ -> `undefined`. Иначе `{ OR: [{ discountPrice: null, price: R }, { discountPrice: R }] }`, где `R` = `{ gte?: min, lte?: max }` только с заданными границами.
+  - `buildOrderBy(sort): Prisma.ProductOrderByWithRelationInput[] | null`: `default` -> `[{ createdAt: "desc" }]` (как сейчас на сайте; поля `sortOrder` у товара нет), `new` -> `[{ isNew: "desc" }, { createdAt: "desc" }]` (товары с отметкой "Новинка" первыми, см. вопрос В-4), `price_asc`/`price_desc` -> `null` (сортировка в JS, см. ниже).
+  - `sortIdsByEffectivePrice(rows, direction: "asc" | "desc"): string[]`; `rows`: `{ id: string; price: DecimalLike; discountPrice: DecimalLike | null; createdAt: Date }[]`, `DecimalLike = number | string | { toString(): string }`, приведение через `Number(String(x))`. При равной цене порядок: `createdAt` по убыванию, затем `id` по возрастанию (стабильная пагинация).
+  - `paginateIds(ids: string[], requestedPage: number, pageSize: number): { pageIds: string[]; page: number; totalPages: number }`: `totalPages >= 1`, страница зажимается в `[1, totalPages]`.
+- Тесты (vitest, `catalog-params.test.ts`): `parseSort` для всех значений и мусора; `parsePriceRange` для `"2 300"`, `"abc"`, `"-5"`, `"10.5"`, `""`, перестановки min/max, лимита; `buildEffectivePriceWhere` для только min, только max, обоих, пустого; `sortIdsByEffectivePrice`: товар 3000 со скидкой 2000 стоит дешевле товара 2500, обе стороны, равные цены по дате; `paginateIds`: пустой список, страница за пределами, последняя неполная страница.
+- Критерии приемки: `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### U-03. Сортировка и фильтр цены на странице категории
+
+- Статус: TODO
+- Цель: покупательница выбирает "Спочатку дешевші/дорожчі/Новинки", сортировка сохраняется при смене фильтров и страниц; фильтр цены учитывает акционную цену и не роняет страницу на мусорном вводе.
+- Файлы: `src/app/(public)/catalog/[categorySlug]/page.tsx`, `src/components/catalog/CatalogFilters.tsx`, `src/components/catalog/CatalogSortSelect.tsx` (новый).
+- Входы и выходы:
+  - Страница: `searchParams` дополняется `sort?: string`. `sort = parseSort(...)`, цена через `parsePriceRange` и `buildEffectivePriceWhere` (U-02). Текущий `price: { gte, lte }` по полю `price` убрать (сейчас товар со скидкой фильтруется по старой цене, а `?minPrice=abc` дает `NaN` в запросе).
+  - `filteredWhere` собирать как `{ AND: [baseWhere, ...условия] }`, а не через spread: сейчас при выборе и размера, и цвета второй ключ `variants` затирает первый, и фильтр по размеру пропадает. Размер и цвет объединить в одно условие `variants: { some: { ...(размеры ? { size: { value: { in } }, stock: { gt: 0 } } : {}), ...(цвета ? { color: { name: { in } } } : {}) } }` (выбранный размер должен быть в наличии, как в списке доступных размеров).
+  - Сортировки `default` и `new`: как сейчас (`count` и `findMany` в одном `Promise.all`, повторный запрос при странице вне диапазона), `orderBy` из `buildOrderBy`.
+  - Сортировки по цене: один запрос `findMany({ where: filteredWhere, select: { id, price, discountPrice, createdAt } })`, затем `sortIdsByEffectivePrice` и `paginateIds`, затем `findMany({ where: { id: { in: pageIds } }, include: как сейчас })` и упорядочить результат по `pageIds`. `totalCount` = длина списка id, отдельный `count` не нужен.
+  - `CatalogSortSelect` (клиентский): `<label>` "Сортування" + `<select>` с `SORT_LABELS`, значение из `useSearchParams`. При смене: копия текущих параметров, `sort` ставится (для `default` удаляется), `page` удаляется, `router.push`. Размещение: в строке заголовка рядом с "N моделей", видно и на мобильном без раскрытия фильтров. Высота не меньше 44px.
+  - `CatalogFilters`: "Скинути фільтри" сбрасывает фильтры, но сохраняет `sort`; `sort` не считается активным фильтром в счетчике. Поля цены: форма получает `key={minPrice + "|" + maxPrice}`, чтобы после сброса или смены URL значения обновлялись; `pattern="[0-9 ]*"`. Остальная разметка без изменений.
+  - Пагинация уже переносит все параметры (`CatalogPagination`), ее не трогать. Канонический URL остается без параметров.
+- Тесты: логика покрыта в U-02; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - При запущенном сервере для существующей категории `S` (взять slug из `/catalog`): `curl -s -o /dev/null -w "%{http_code}"` для `/catalog/S?sort=price_asc`, `/catalog/S?sort=price_desc&page=99`, `/catalog/S?sort=zzz`, `/catalog/S?minPrice=abc&maxPrice=-1`, `/catalog/S?size=38&color=x&sort=new` печатает `200` в каждом случае.
+  - Ручная проверка оркестратором: на категории с товарами разной цены `price_asc` дает возрастание фактической цены на карточках; при переходе на страницу 2 и смене размера `sort` остается в URL; товар со скидкой ниже `maxPrice` попадает в выдачу, хотя его старая цена выше.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-02.
+
+### U-04. Модуль письма покупательнице (Resend)
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: готовая функция, которая формирует и отправляет письмо о принятом заказе и никогда не ломает оформление заказа.
+- Файлы: `src/lib/notify/email.ts` (новый), `src/lib/notify/email.test.ts` (новый).
+- Входы и выходы:
+  - Без новых зависимостей: Resend вызывается через `fetch` (`POST https://api.resend.com/emails`, заголовки `Authorization: Bearer <RESEND_API_KEY>`, `Content-Type: application/json`, `Idempotency-Key: order-<orderNumber>`), `signal: AbortSignal.timeout(4000)`.
+  - Тип входа `OrderEmailData`: `orderNumber`, `customerName`, `email?: string | null`, `paymentMethod: string`, `shippingCity?`, `shippingWarehouse?`, `total: MoneyLike`, `items: { productName; size?; color?; quantity; price: MoneyLike; total: MoneyLike }[]`. Совместим с результатом `prisma.order.create({ include: { items: true } })`.
+  - `formatOrderEmail(order): { subject: string; html: string; text: string }` (чистая функция):
+    - Тема: `Замовлення <номер> прийнято | La Mia Fortuna Shoes`.
+    - Содержание (украинский): обращение по имени; "Дякуємо за замовлення! Ми зв'яжемося з вами, щоб підтвердити його."; номер заказа; таблица товаров (название, розмір, колір, кількість, ціна, сума позиції); итог "Разом"; оплата: для `CASH_ON_DELIVERY` "Накладений платіж (оплата при отриманні у відділенні Нової Пошти)", иначе "Оплата карткою онлайн"; доставка "Нова Пошта: <місто>, <відділення>" и строка "Вартість доставки за тарифами Нової Пошти"; контакты магазина из `SITE` (`src/lib/site-config.ts`): телефон, Telegram, Viber, Instagram, адрес сайта `getSiteUrl()`; подпись `SITE.name`.
+    - Деньги через `formatPrice`. Все значения от покупательницы и из БД экранируются в HTML (`& < > " '`). Простая табличная верстка с inline-стилями, без картинок и внешних шрифтов. `text` повторяет содержание обычным текстом.
+  - `sendOrderEmail(order): Promise<void>`, никогда не кидает:
+    - Нет `RESEND_API_KEY` или `EMAIL_FROM` -> одноразовый `console.warn("Email-листи вимкнені: не задано RESEND_API_KEY або EMAIL_FROM")`, выход.
+    - Пустой `order.email` -> выход без логов.
+    - Тело запроса: `from: EMAIL_FROM`, `to: [email]`, `reply_to: SITE.seller.email`, `subject`, `html`, `text`.
+    - Ответ не 2xx -> `console.error("Email: не вдалося надіслати лист, статус <код>")`; исключение -> `console.error` с текстом ошибки, из которого вырезан ключ. Адрес покупательницы и ключ в логи не попадают.
+  - `resetEmailWarningForTests()` по образцу `telegram.ts`.
+- Тесты (vitest, `fetch` через `vi.stubGlobal`, переменные через `vi.stubEnv`): тема и номер; экранирование `<script>` в имени и названии товара; подпись оплаты для COD и карты; строки товаров с размером и цветом и без них; без переменных `fetch` не вызывается и предупреждение одно на два вызова; без email `fetch` не вызывается; тело и заголовки запроса (включая `Idempotency-Key`); `fetch` отклонен и ответ 500 -> промис резолвится, в `console.error` нет ключа и адреса.
+- Критерии приемки: `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### U-05. Письмо покупательнице из POST /api/orders
+
+- Статус: TODO
+- Цель: после успешного оформления покупательница с указанным email получает письмо; сбой Resend не влияет на ответ чекаута.
+- Файлы: `src/app/api/orders/route.ts`, `src/app/(public)/checkout/page.tsx` (только подпись поля email).
+- Входы и выходы:
+  - В обеих ветках (наложенный платеж и карта после успешного создания счета) вместо `await notifyNewOrder()` вызвать `await Promise.all([notifyNewOrder(), sendOrderEmail(order)])`. При 502 (счет не создан) письмо не шлется, как и Telegram. Остальное поведение роута не меняется.
+  - Чекаут: если по В-2 email остается необязательным (по умолчанию), подпись поля "Email (необов'язково, надішлемо деталі замовлення)". Валидацию и схему не менять. Если владелец решит сделать email обязательным, задача уточняется оркестратором до старта (тогда меняется `src/lib/checkout-schema.ts` и тесты к нему).
+- Тесты: логика в U-04; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - `npm run smoke` при запущенном сервере проходит.
+  - `grep -c "sendOrderEmail" src/app/api/orders/route.ts` печатает 3 или больше (импорт и две ветки).
+  - Ручная проверка оркестратором после U-06 и верификации домена: тестовый заказ с email владельца приходит письмом с верным составом и суммой; заказ без email оформляется как раньше; с неверным `RESEND_API_KEY` заказ оформляется, в логе `Email: не вдалося`. Тестовый заказ после проверки отменить.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-04.
+
+### U-06. Переменные и инструкции для писем
+
+- Статус: TODO
+- Цель: владелец знает, как включить письма, а `check:env` ловит неполную настройку.
+- Файлы: `.env.example`, `scripts/check-env.mjs`, `CREDENTIALS.md`, `DEPLOY-CHECKLIST.md`, `CLAUDE.md`.
+- Входы и выходы:
+  - `.env.example`: блок "Листи покупцям про замовлення (Resend, необов'язково)" с `RESEND_API_KEY=` и `EMAIL_FROM=`; комментарий: пусто - листи вимкнені, замовлення працюють; приклад `EMAIL_FROM="La Mia Fortuna Shoes <orders@fortuna-shoes.com.ua>"`; домен відправника треба підтвердити в Resend.
+  - `check-env.mjs`: оба пустые -> предупреждение "Resend не задано, листи покупцям вимкнені"; задан только один -> ошибка "Resend: задайте RESEND_API_KEY і EMAIL_FROM разом або жодного"; `EMAIL_FROM` без `@` -> ошибка; с `--prod` и адресом на `resend.dev` -> ошибка "EMAIL_FROM у продакшені має бути на власному домені".
+  - `CREDENTIALS.md`: раздел "Resend (листи покупцям)": регистрация на resend.com, Domains -> Add Domain `fortuna-shoes.com.ua` (регион EU), добавить показанные DNS-записи (SPF/MX для поддомена `send`, DKIM, по желанию DMARC) там, где управляется DNS домена; дождаться статуса Verified; API Keys -> Create, права только "Sending access", домен `fortuna-shoes.com.ua`; вставить `RESEND_API_KEY` и `EMAIL_FROM` в Vercel (Production и Preview), затем Redeploy. Бесплатный тариф: 100 писем в день, 3000 в месяц. Ответы покупательниц приходят на `SITE.seller.email`.
+  - `DEPLOY-CHECKLIST.md`: пункт про переменные Resend и проверку письма тестовым заказом.
+  - `CLAUDE.md`: в "Паттерни" пункт "Лист покупцю (`src/lib/notify/email.ts`)": Resend через fetch, без `RESEND_API_KEY`/`EMAIL_FROM` вимкнено, сбой не ломает замовлення. Раздел "Рабочий процесс" не трогать.
+- Тесты: не нужны.
+- Критерии приемки:
+  - `grep -c "RESEND_API_KEY\|EMAIL_FROM" .env.example` печатает 2 или больше; `grep -c "Resend" CREDENTIALS.md DEPLOY-CHECKLIST.md CLAUDE.md` показывает не меньше 1 для каждого файла.
+  - `env -i PATH="$PATH" RESEND_API_KEY=x node scripts/check-env.mjs | grep -c "Resend"` печатает 1 или больше; `env -i PATH="$PATH" RESEND_API_KEY=x EMAIL_FROM=a@resend.dev node scripts/check-env.mjs --prod | grep -c "власному домені"` печатает 1.
+  - `ТИРЕ` печатает 0.
+- Исполнитель: implementer-lite
+- Модель: haiku
+- Зависимости: U-04.
+
+### U-07. Политика конфиденциальности: Resend и данные в браузере
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: политика честно описывает нового обработчика (Resend) и хранение "Обраного" и просмотренных товаров только в браузере.
+- Файлы: `src/app/(public)/privacy/page.tsx`.
+- Входы и выходы:
+  - Раздел 5 "Кому передаються дані": пункт "Resend: надсилання листа з деталями замовлення на email, якщо покупець його вказав (email, ім'я, склад і сума замовлення)."
+  - Раздел про cookie (раздел 6): абзац "Список «Обране» і нещодавно переглянуті товари зберігаються лише у вашому браузері (localStorage) і на сервер не передаються. Їх можна видалити, очистивши дані сайту в налаштуваннях браузера."
+  - Остальной текст не менять. Юридический текст: ревью модель opus.
+- Тесты: не нужны.
+- Критерии приемки: `БАЗА` зеленая, `ТИРЕ` печатает 0; `grep -c "Resend" "src/app/(public)/privacy/page.tsx"` и `grep -c "localStorage" "src/app/(public)/privacy/page.tsx"` печатают 1 или больше.
+- Исполнитель: implementer-lite
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### U-08. Сторы "Обране" и "Нещодавно переглянуті"
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: два маленьких Zustand-стора с persist в localStorage и хук, который убирает расхождение разметки сервера и клиента.
+- Файлы: `src/lib/id-list.ts` (новый), `src/lib/id-list.test.ts` (новый), `src/lib/favorites-store.ts` (новый), `src/lib/recently-viewed-store.ts` (новый), `src/lib/use-hydrated.ts` (новый).
+- Входы и выходы:
+  - `id-list.ts` (чистые функции): `toggleId(ids, id, max)` (есть -> убрать; нет -> добавить в начало; длина не больше `max`, лишние с конца отбрасываются); `pushRecentId(ids, id, max)` (убрать дубль, поставить в начало, обрезать до `max`); `keepIds(ids, allowed: Set<string>)` (оставить только разрешенные, порядок сохранить). Входной массив не мутируется.
+  - `favorites-store.ts`: `useFavoritesStore`, состояние `{ ids: string[] }`, действия `toggle(id)`, `remove(id)`, `prune(allowedIds: string[])`; `FAVORITES_MAX = 100`; `persist` с `name: "la-mia-fortuna-favorites"`, `version: 1`, `partialize` только `ids`. Хранятся id товаров (`Product.id`), не slug.
+  - `recently-viewed-store.ts`: `useRecentlyViewedStore`, `{ ids }`, `add(id)`, `prune(allowedIds)`; `RECENT_MAX = 12` (хранится с запасом, показывается до 8 без текущего товара); `name: "la-mia-fortuna-recent"`, `version: 1`.
+  - `use-hydrated.ts`: `useHydrated(): boolean`, `false` на сервере и при первом рендере клиента, `true` после монтирования (`useSyncExternalStore` с `getServerSnapshot = () => false` или `useEffect`). Правило для всех компонентов этапа: данные сторов показывать только при `useHydrated() === true`, до этого рендерить то же, что на сервере (пустое сердечко, без счетчика, без блока).
+  - `cart-store.ts` не трогать.
+- Тесты (vitest, `id-list.test.ts`): все три функции, включая лимит, повторное добавление, неизменность входа, пустые массивы.
+- Критерии приемки: `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Исполнитель: implementer-lite
+- Модель: haiku
+- Зависимости: нет. Параллельная.
+
+### U-09. API карточек по id и клиентский хук
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: "Обране" и "Нещодавно переглянуті" показывают актуальные цены и наличие из БД; удаленные и скрытые товары отбрасываются.
+- Файлы: `src/lib/product-card-data.ts` (новый), `src/lib/product-card-data.test.ts` (новый), `src/app/api/products/by-ids/route.ts` (новый), `src/lib/use-products-by-ids.ts` (новый).
+- Входы и выходы:
+  - `product-card-data.ts`: `parseIdsParam(value: string | null, max = 50): string[]` (разделение по запятой, `trim`, только `/^[a-z0-9]{10,40}$/i`, без дублей, порядок сохраняется, не больше `max`); `toGridProduct(product)` с тем же маппингом, что в `catalog/[categorySlug]/page.tsx` (цены через `Number`, варианты отсортированы по `size.sortOrder`, поля `size`, `color`, `colorHex`, `stock`), тип результата `GridProduct` (импорт типа из `ProductGrid`); `orderByIds(products, ids)`. Страницы каталога на этот маппер не переводить (вне задачи).
+  - `GET /api/products/by-ids?ids=a,b,c`: `parseIdsParam`; пустой список -> `{ products: [] }` без запроса к БД; иначе `findMany({ where: { id: { in }, isPublished: true }, include: { images: { orderBy: { position: "asc" }, take: 2 }, variants: { include: { size: true, color: true } } }, relationLoadStrategy: "join" })`, ответ `{ products: GridProduct[] }` в порядке запрошенных id, заголовок `Cache-Control: no-store`. `dynamic = "force-dynamic"`.
+  - `use-products-by-ids.ts` (клиентский хук): `useProductsByIds(ids: string[], enabled: boolean): { status: "idle" | "loading" | "ready" | "error"; products: GridProduct[]; missingIds: string[] }`. Запрос только при `enabled` и непустом списке, повтор при изменении списка (ключ = `ids.join(",")`), отмена через `AbortController`. `missingIds` = запрошенные, но не вернувшиеся; считаются только при `status: "ready"` (при ошибке сети ничего не удаляем).
+- Тесты (vitest, `product-card-data.test.ts`): `parseIdsParam` (мусор, дубли, лимит, `null`); `toGridProduct` на фиктивном объекте с Decimal-подобными ценами и несортированными размерами; `orderByIds` с отсутствующими id.
+- Критерии приемки:
+  - `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - При запущенном сервере: `curl -s "http://localhost:3000/api/products/by-ids?ids="` печатает `{"products":[]}`; `curl -s "http://localhost:3000/api/products/by-ids?ids=<id опубликованного товара>,neiisnuyuchyi1234"` возвращает ровно один товар; `curl -sI "http://localhost:3000/api/products/by-ids?ids=x" | grep -ci "no-store"` печатает 1.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### U-10. Сердечко на карточке и на странице товара
+
+- Статус: TODO
+- Цель: покупательница одним нажатием добавляет и убирает товар из "Обраного" в каталоге и на странице товара.
+- Файлы: `src/components/favorites/FavoriteButton.tsx` (новый), `src/components/catalog/ProductCard.tsx`, `src/components/catalog/ProductGrid.tsx`, `src/app/(public)/product/[productSlug]/page.tsx`.
+- Входы и выходы:
+  - `FavoriteButton` (клиентский) пропсы `{ productId: string; productName: string; variant: "card" | "page" }`. Состояние из `useFavoritesStore`, отображение только после `useHydrated()` (до этого пустое сердечко). SVG-сердечко: контур в обычном состоянии, заливка `accent` в выбранном. `aria-pressed`, `aria-label` "Додати в обране: <назва>" / "Прибрати з обраного: <назва>". Клик: `event.preventDefault()` и `event.stopPropagation()` (карточка обернута в `Link`), `toggle(productId)`. Область нажатия не меньше 44x44px.
+  - `variant="card"`: круглая кнопка в правом верхнем углу фото (`absolute right-2 top-2`, полупрозрачный светлый фон), не перекрывает бейджи слева.
+  - `variant="page"`: кнопка с иконкой и текстом "В обране" / "В обраному", рядом с заголовком товара или под кнопкой "Замовити в Telegram" (выбрать вариант, который не ломает мобильную верстку).
+  - `ProductCard`: новый необязательный проп `productId?: string`; кнопка рендерится только если он задан. `ProductGrid` передает `productId={product.id}`.
+  - Страница товара: `FavoriteButton` с `product.id`, `product.name`, `variant="page"`. Остальное не менять.
+- Тесты: логика в U-08; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - Ручная проверка оркестратором: клик по сердечку на карточке не открывает товар; после перезагрузки страницы сердечко остается заполненным; в консоли браузера нет предупреждений о hydration mismatch.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-08.
+
+### U-11. Иконка "Обране" в шапке и страница /favorites
+
+- Статус: TODO
+- Цель: из шапки видно, сколько товаров в "Обраному", и открывается страница с ними; удаленные и скрытые товары исчезают из списка сами.
+- Файлы: `src/components/favorites/FavoritesLink.tsx` (новый), `src/components/favorites/FavoritesList.tsx` (новый), `src/app/(public)/favorites/page.tsx` (новый), `src/components/layout/Header.tsx`, `src/components/layout/MobileNav.tsx`, `src/app/robots.ts`.
+- Входы и выходы:
+  - `FavoritesLink` (клиентский): `Link` на `/favorites`, круглая кнопка того же размера и стиля, что `CartTriggerButton`, иконка сердечка, счетчик (`accent`, как у корзины) только после `useHydrated()` и при `ids.length > 0`. `aria-label` "Обране".
+  - `Header`: `FavoritesLink` между `SearchInput` и `CartTriggerButton`.
+  - `MobileNav`: пункт "Обране" со ссылкой на `/favorites` в конце списка разделов, счетчик в скобках после гидратации; меню закрывается при переходе, как другие пункты.
+  - `/favorites/page.tsx` (серверный): метаданные `title: "Обране"`, `robots: { index: false }`; заголовок страницы "Обране" в стиле страницы категории; рендерит `FavoritesList`.
+  - `FavoritesList` (клиентский): `useHydrated`, `useFavoritesStore`, `useProductsByIds(ids, hydrated)` (U-09). Состояния: до гидратации и при загрузке скелет-заглушка; пустой список -> текст "Тут поки порожньо. Натисніть на сердечко на товарі, щоб зберегти його." и ссылка "До каталогу"; ошибка -> "Не вдалося завантажити товари. Оновіть сторінку."; иначе `ProductGrid` (с сердечками из U-10, повторный клик убирает товар со страницы). При `status: "ready"` и непустом `missingIds` вызвать `prune` с вернувшимися id (один раз на ответ).
+  - `robots.ts`: добавить `/favorites` в `disallow`.
+- Тесты: логика в U-08 и U-09; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - При запущенном сервере `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/favorites` печатает `200`; `curl -s http://localhost:3000/robots.txt | grep -c "/favorites"` печатает 1.
+  - Ручная проверка оркестратором: счетчик в шапке меняется сразу при клике по сердечку; товар, скрытый в админке, пропадает из "Обраного" и из счетчика после открытия страницы; мобильное меню содержит "Обране"; нет предупреждений о hydration mismatch.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-08, U-09, U-10.
+
+### U-12. Блок "Ви нещодавно переглядали"
+
+- Статус: TODO
+- Цель: на странице товара и в корзине покупательница видит товары, которые уже смотрела, и легко к ним возвращается.
+- Файлы: `src/components/product/RecentlyViewed.tsx` (новый), `src/app/(public)/product/[productSlug]/page.tsx`, `src/app/(public)/cart/page.tsx`.
+- Входы и выходы:
+  - `RecentlyViewed.tsx` экспортирует два клиентских компонента:
+    - `TrackRecentlyViewed({ productId })`: в `useEffect` вызывает `add(productId)`, ничего не рендерит.
+    - `RecentlyViewedSection({ excludeId?: string; limit: number })`: id из стора без `excludeId`, первые `limit`; загрузка через `useProductsByIds` после `useHydrated()`; `prune` по `missingIds` как в U-11; если товаров нет или идет загрузка, ничего не рендерит (без скачка верстки ниже фолда это допустимо). Заголовок "Ви нещодавно переглядали" в стиле блока "З цим дивляться", сетка `ProductGrid`.
+  - Страница товара: `TrackRecentlyViewed` с `product.id`; `RecentlyViewedSection` с `excludeId={product.id}` и `limit={8}` после блока "З цим дивляться". Важно: текущий товар добавляется в стор при открытии, но в блоке на этой же странице не показывается.
+  - Корзина: `RecentlyViewedSection` с `limit={4}` под списком товаров и в пустой корзине (вопрос В-8). Логику корзины не менять.
+- Тесты: логика в U-08 и U-09; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - Ручная проверка оркестратором: открыть 3 товара подряд; на третьем блок показывает два предыдущих, текущего нет; в корзине блок есть; после 10 просмотров на странице товара не больше 8 карточек; нет предупреждений о hydration mismatch.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-08, U-09, U-10.
+
+### U-13. Telegram: напоминание отметить проданный размер
+
+- Статус: CANCELLED (решение владельца 2026-11-27 по В-1: учета остатков нет, напоминание не нужно)
+- Цель: после заказа клиентка сразу видит в Telegram, какие размеры проданы, и одной ссылкой открывает товар в админке, чтобы отметить "немає", если это была последняя пара. Модель остатков и админку не меняем: `stock` остается флагом "є/немає" (решение из этапа 2, `build-order.ts`).
+- Файлы: `src/lib/notify/telegram.ts`, `src/lib/notify/telegram.test.ts`, `src/app/api/orders/route.ts`.
+- Входы и выходы:
+  - `NotifyOrderItem` дополняется `productId?: string | null`.
+  - `formatNewOrderMessage(order, adminUrl, productAdminUrl?: (productId: string) => string)`: если третий аргумент передан и есть позиции с `productId`, в конце сообщения перед строкой "Замовлення в адмінці" блок:
+    `Якщо це була остання пара, відмітьте розмір як «немає»:` и по одной строке на уникальный товар `- <назва>, розмір <р.>, колір <к.>: <ссылка>` (для одного товара с разными размерами одна ссылка, размеры через запятую). Без третьего аргумента текст сообщения не меняется (прежние тесты не трогать).
+  - Роут: передать `(id) => \`${getSiteUrl()}/admin/products/${id}/edit\``. `order.items` уже содержит `productId`.
+  - Порог остатка, env-переменные и новые поля в админке не нужны.
+  - Если владелец выберет вариант "Б" (реальный учет количества), эта задача отменяется и проектируется отдельный этап (см. В-1).
+- Тесты (vitest, `telegram.test.ts`): блок есть при переданной функции; товар с двумя размерами дает одну строку со ссылкой; позиции без `productId` пропускаются; без третьего аргумента сообщение совпадает с прежним.
+- Критерии приемки: `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-05; ответ владельца на В-1.
+
+### U-14. Чистая сборка CSV заказов
+
+- Статус: DONE (2026-11-27, ревью PASS)
+- Цель: функция, которая превращает заказы в CSV, корректно открывающийся двойным щелчком в украинском Excel.
+- Файлы: `src/lib/admin/orders-csv.ts` (новый), `src/lib/admin/orders-csv.test.ts` (новый), `src/lib/admin/order-labels.ts` (новый).
+- Входы и выходы:
+  - `order-labels.ts`: `ORDER_STATUS_LABELS`, `PAYMENT_METHOD_LABELS`, `PAYMENT_STATUS_LABELS` (те же тексты, что на страницах заказов в админке; страницы на этот файл не переводить).
+  - `buildOrdersCsv(orders): string`. Вход: заказы с `items` (поля как в Prisma). Выход: `"﻿"` + строки через `\r\n`, разделитель `;`.
+  - Колонки (заголовки на украинском): "Номер", "Дата", "Статус", "Оплата", "Статус оплати", "Клієнт", "Телефон", "Email", "Місто", "Відділення", "Товари", "Кількість пар", "Сума, грн", "ТТН", "Коментар", "Джерело". Одна строка на заказ (вопрос В-7).
+  - Форматы: дата `ДД.ММ.РРРР ГГ:ХХ` в часовом поясе `Europe/Kyiv`; сумма с запятой и двумя знаками без разделителя тысяч (`2500,00`); телефон в национальном виде `050 123 45 67`, если номер сохранен как `+380XXXXXXXXX`, иначе как есть; товары `Назва (розмір 38, колір чорний) x 1` через `; ` внутри ячейки; "Джерело" через `formatAttribution` из `src/lib/notify/telegram.ts`.
+  - Экранирование: ячейка в кавычках, если содержит `;`, `"`, перевод строки; кавычки удваиваются; переводы строк внутри ячейки сохраняются. Защита от формул: если значение начинается с `=`, `+`, `-`, `@`, табуляции или `\r`, перед ним ставится `'`.
+- Тесты (vitest, `orders-csv.test.ts`): BOM в начале; заголовок; разделитель и `\r\n`; кавычки и `;` в комментарии; перевод строки в комментарии; `=HYPERLINK(...)` в имени получает `'`; формат суммы и даты (заказ в 23:30 UTC попадает на следующий день по Киеву); телефон; пустой email и пустые поля; несколько товаров в одной ячейке.
+- Критерии приемки: `npm test` зеленый, `БАЗА` зеленая, `ТИРЕ` печатает 0.
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: нет. Параллельная.
+
+### U-15. Выгрузка CSV: роут и кнопка в админке
+
+- Статус: TODO
+- Цель: клиентка нажимает "Завантажити CSV" в списке заказов и получает файл с теми же заказами, что видит на экране.
+- Файлы: `src/app/api/admin/orders/export/route.ts` (новый), `src/app/(admin)/admin/orders/page.tsx`.
+- Входы и выходы:
+  - `GET /api/admin/orders/export?status=<STATUS>`: роут защищен `src/middleware.ts` (префикс `/api/admin`), дополнительно в самом роуте проверить cookie сессии через `verifySessionToken` из `src/lib/admin-session.ts` (как в middleware), без сессии 401: в файле все персональные данные покупательниц. Фильтр статуса тот же, что на странице (`STATUS_VALUES`, неизвестный -> все заказы). `findMany({ where, include: { items: true }, orderBy: { createdAt: "desc" } })`, `buildOrdersCsv` (U-14).
+  - Ответ: `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="orders-<РРРР-ММ-ДД>[-<status>].csv"` (дата по Киеву, только латиница в имени), `Cache-Control: no-store`. `dynamic = "force-dynamic"`.
+  - Страница заказов: кнопка-ссылка "Завантажити CSV" справа от заголовка, `href` на роут с текущим `status`, если он выбран; атрибут `download`. Стиль как у фильтров (`rounded-full border`), понятный без пояснений.
+- Тесты: логика в U-14; новых тестов не нужно.
+- Критерии приемки:
+  - `БАЗА` зеленая, `ТИРЕ` печатает 0, `npm run build` проходит.
+  - При запущенном сервере без cookie: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/admin/orders/export` печатает `401`.
+  - Ручная проверка оркестратором: после входа в админку кнопка на вкладке "Новий" скачивает файл только с новыми заказами; файл открывается в Excel двойным щелчком с колонками и кириллицей без "кракозябр".
+- Исполнитель: implementer
+- Модель: sonnet
+- Зависимости: U-14.
+
+### U-16. Документация этапа 9
+
+- Статус: TODO
+- Цель: клиентка знает про новые возможности админки и Telegram, владелец может проверить этап по чек-листу.
+- Файлы: `docs/admin-guide.md`, `docs/acceptance.md`, `CLAUDE.md`.
+- Входы и выходы:
+  - `docs/admin-guide.md` (украинский, простыми словами): раздел про "Завантажити CSV" (что в файле, как открыть в Excel, что выгружаются заказы выбранной вкладки, файл содержит личные данные покупательниц, не пересылать посторонним); в разделе про Telegram абзац про напоминание "Якщо це була остання пара..." и как по ссылке отметить "немає" (если U-13 выполнена); абзац, что покупательница с email получает лист з деталями замовлення.
+  - `docs/acceptance.md` (на русском, с `[ ]`): раздел "Этап 9": 404 на несуществующем адресе и товаре с шапкой; сортировки по цене с учетом скидки и сохранение при пагинации; фильтр цены со скидочным товаром; письмо на тестовый заказ (состав, сумма, контакты, ответ уходит на почту клиентки); заказ без email и при выключенном Resend; сердечко, счетчик, /favorites, скрытый товар пропадает; блок просмотренных без текущего товара, не больше 8; Telegram-напоминание со ссылкой; CSV открывается в Excel, фильтр по статусу, без входа 401; тестовые заказы отменить.
+  - `CLAUDE.md`, "Карта ключових папок": `src/components/favorites/`, `src/lib/favorites-store.ts`, `src/lib/recently-viewed-store.ts`, `src/lib/catalog-params.ts`, `src/lib/admin/orders-csv.ts`, `src/app/(public)/favorites/`. Раздел "Рабочий процесс" не трогать.
+- Тесты: не нужны.
+- Критерии приемки: `grep -c "CSV" docs/admin-guide.md` печатает 1 или больше; в `docs/acceptance.md` добавлено не меньше 10 пунктов `[ ]`; `grep -c "favorites" CLAUDE.md` печатает 1 или больше; `ТИРЕ` печатает 0.
+- Исполнитель: implementer-lite
+- Модель: haiku
+- Зависимости: U-01 - U-15 (U-13 только если не отменена).
+
+### Делает человек (этап 9)
+
+- [x] Ответить на вопросы В-1 - В-8 ниже. Решения владельца 2026-11-27: В-1 U-13 отменена (учета остатков нет); В-2 email необязательный; В-3 отправитель `orders@fortuna-shoes.com.ua`, ответы на почту клиентки, DNS домена у регистратора (NS `uadns.com`), записи Resend вносит владелец; В-4 по умолчанию по дате, "Новинки" сначала с флагом; В-5 письмо сразу при оформлении; В-6 `/favorites`; В-7 одна строка на заказ; В-8 до 4 карточек в корзине.
+- [ ] Resend: аккаунт, домен `fortuna-shoes.com.ua`, DNS-записи там, где управляется DNS домена, статус Verified, ключ "Sending access", переменные `RESEND_API_KEY` и `EMAIL_FROM` в Vercel (Production и Preview), Redeploy. До этого письма просто выключены, заказы работают.
+- [ ] После деплоя этапа пройти раздел "Этап 9" в `docs/acceptance.md`.
+
+### Вопросы к владельцу (этап 9)
+
+- В-1. Низкий остаток. Сейчас остаток это флаг "є/немає" (так договорились с клиенткой, в админке нет количества, сайт его не уменьшает), поэтому "остаток упал до порога" не наступает никогда. По умолчанию вариант "А" (U-13): в сообщении о новом заказе список проданных размеров со ссылкой на товар в админке, чтобы отметить "немає". Вариант "Б": настоящий учет пар (количество в админке, списание при заказе, возврат при отмене, уведомление при пороге 1) это отдельный этап с изменением админки, логики заказа и гайда, без миграции, но сложнее для клиентки.
+- В-2. Email на чекауте сейчас необязательный. По умолчанию оставить необязательным (меньше отказов на телефоне), подпись "Email (необов'язково, надішлемо деталі замовлення)".
+- В-3. Адрес отправителя и ответов. По умолчанию `La Mia Fortuna Shoes <orders@fortuna-shoes.com.ua>`, ответы на почту клиентки из `SITE.seller.email`. Кто добавит DNS-записи (где управляется DNS: Vercel или nic.ua)?
+- В-4. Порядок "по умолчанию". Поля `sortOrder` у товара нет, сейчас каталог идет от новых к старым. По умолчанию так и оставить, а "Новинки" показывают первыми товары с отметкой "Новинка". Ручной порядок товаров потребовал бы миграции и поля в админке, не рекомендую.
+- В-5. Письмо при оплате картой. По умолчанию письмо уходит сразу при оформлении (как Telegram), с текстом "Оплата карткою онлайн". Сейчас карта выключена, вопрос станет актуален при ее включении.
+- В-6. Адрес страницы "Обране". По умолчанию `/favorites` (остальные адреса сайта английские: `/catalog`, `/cart`).
+- В-7. CSV: по умолчанию одна строка на заказ, все товары в одной ячейке. Альтернатива: строка на каждый товар (удобнее считать пары, но суммы повторяются).
+- В-8. Просмотренные в корзине: по умолчанию да, до 4 карточек (на странице товара до 8).
