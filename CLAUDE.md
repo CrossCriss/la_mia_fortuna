@@ -50,6 +50,12 @@ npm run prisma:studio     # Prisma Studio
 - `src/lib/format-price.ts` — єдина функція форматування ціни (без `Intl`, щоб уникнути hydration mismatch між сервером і клієнтом)
 - `src/lib/admin-session.ts` — сесії адмінки (HMAC-cookie, Edge-safe); `src/lib/password.ts` — хешування пароля (Node-only, scrypt)
 - `src/lib/catalog.ts` — побудова Prisma-фільтрів для категорій (включно з підкатегоріями, "Новинки"/"Акції" по флагах товару)
+- `src/lib/catalog-params.ts` - дозволені сортування каталогу (`CATALOG_SORTS`) і їх назви для вибору на сторінці каталогу
+- `src/app/(public)/favorites/` - сторінка «Обране» зі списком збережених товарів
+- `src/components/favorites/` - `FavoriteButton` (сердечко на картці і сторінці товару), `FavoritesLink` (лічильник у шапці), `FavoritesList` (вміст сторінки обраного)
+- `src/lib/favorites-store.ts` - Zustand-стор обраних товарів (persist у localStorage, ліміт `FAVORITES_MAX`)
+- `src/lib/recently-viewed-store.ts` - Zustand-стор блоку «Ви нещодавно переглядали» (ліміт `RECENT_MAX`)
+- `src/lib/admin/orders-csv.ts` - збірка CSV замовлень для Excel (BOM на початку, роздільник ";", рядки через CRLF); вивантаження через `api/admin/orders/export`
 
 ## Патерни, які варто зберегти при кастомізації
 
