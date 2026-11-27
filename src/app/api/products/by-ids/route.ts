@@ -21,7 +21,6 @@ export async function GET(request: Request) {
       images: { orderBy: { position: "asc" }, take: 2 },
       variants: { include: { size: true, color: true } },
     },
-    relationLoadStrategy: "join",
   });
 
   const products = orderByIds(rows.map(toGridProduct), ids);

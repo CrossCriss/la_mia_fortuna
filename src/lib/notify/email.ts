@@ -60,7 +60,7 @@ export function formatOrderEmail(order: OrderEmailData): { subject: string; html
   const contacts: [string, string][] = [
     ["Телефон", SITE.phoneDisplay],
     ["Telegram", SITE.telegramUrl],
-    ["Viber", SITE.viberUrl],
+    ["Viber", SITE.phoneDisplay],
     ["Instagram", SITE.instagramUrl],
     ["Сайт", siteUrl],
   ];
@@ -75,6 +75,8 @@ export function formatOrderEmail(order: OrderEmailData): { subject: string; html
   }));
 
   const text = [
+    SITE.name,
+    "",
     greeting,
     "",
     thanks,
@@ -116,6 +118,11 @@ export function formatOrderEmail(order: OrderEmailData): { subject: string; html
     `<!DOCTYPE html><html lang="uk"><body style="margin:0;padding:16px;background:#ffffff;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;">` +
     `<tr><td>` +
+    `<div style="text-align:center;padding:8px 0 16px;border-bottom:1px solid #e5e5e5;margin-bottom:16px;">` +
+    `<a href="${esc(siteUrl)}" style="text-decoration:none;color:#2A1D17;">` +
+    `<div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:600;letter-spacing:0.2em;line-height:1;color:#2A1D17;">FORTUNA</div>` +
+    `<div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:0.5em;line-height:1;margin-top:6px;color:#6B5C52;">LA MIA · SHOES</div>` +
+    `</a></div>` +
     `<p style="font-size:16px;">${esc(greeting)}</p>` +
     `<p>${esc(thanks)}</p>` +
     `<p>Номер замовлення: <strong>${esc(order.orderNumber)}</strong></p>` +

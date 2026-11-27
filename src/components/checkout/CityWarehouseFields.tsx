@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { formatCityLabel } from "@/lib/delivery/nova-poshta";
 import {
   AUTOCOMPLETE_DEBOUNCE_MS,
   CITY_MIN_QUERY_LENGTH,
@@ -46,7 +47,7 @@ export function CityWarehouseFields({
           const response = await fetch(`/api/delivery/nova-poshta/cities?q=${encodeURIComponent(query)}`, { signal });
           if (!response.ok) return [];
           const cities: NovaPoshtaCity[] = await response.json();
-          return cities.map((c) => ({ ref: c.ref, label: `${c.name}${c.area ? `, ${c.area}` : ""}` }));
+          return cities.map((c) => ({ ref: c.ref, label: formatCityLabel(c) }));
         }}
       />
 

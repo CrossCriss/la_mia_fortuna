@@ -143,7 +143,6 @@ export default async function CategoryPage({
         orderBy,
         skip: (requestedPage - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
-        relationLoadStrategy: "join",
       }),
     ]);
     totalCount = count;
@@ -158,7 +157,6 @@ export default async function CategoryPage({
             orderBy,
             skip: (page - 1) * PAGE_SIZE,
             take: PAGE_SIZE,
-            relationLoadStrategy: "join",
           });
   } else {
     // Сортування за ефективною ціною (акційна або звичайна): рахуємо в коді.
@@ -175,7 +173,6 @@ export default async function CategoryPage({
       ? await prisma.product.findMany({
           where: { id: { in: paged.pageIds } },
           include: productInclude,
-          relationLoadStrategy: "join",
         })
       : [];
     const byId = new Map(found.map((product) => [product.id, product]));
@@ -183,6 +180,12 @@ export default async function CategoryPage({
       .map((id) => byId.get(id))
       .filter((product): product is NonNullable<typeof product> => Boolean(product));
   }
+
+  // Порожня категорія: без жодних фільтрів 0 товарів означає, що в ній взагалі
+  // немає опублікованих товарів. Якщо фільтри активні - уточнюємо одним count.
+  const isCategoryEmpty =
+    totalCount === 0 &&
+    (conditions.length === 0 || (await prisma.product.count({ where: baseWhere })) === 0);
 
   const products = rawProducts.map((product) => ({
     id: product.id,
@@ -219,21 +222,27 @@ export default async function CategoryPage({
         </h1>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <span className="text-[15px] text-ink-soft">{totalCount} моделей</span>
-          <CatalogSortSelect />
+          {!isCategoryEmpty && <CatalogSortSelect />}
         </div>
       </div>
 
       <div className="mt-8 flex flex-col gap-10 md:flex-row">
-        <CatalogFilters
-          subcategories={category.children.map((child) => ({ slug: child.slug, name: child.name }))}
-          sizes={availableSizes.map((size) => size.value)}
-          colors={availableColors.map((color) => ({ name: color.name, hex: color.hex }))}
-          prints={printFilterData.availablePrints}
-        />
+        {!isCategoryEmpty && (
+          <CatalogFilters
+            subcategories={category.children.map((child) => ({ slug: child.slug, name: child.name }))}
+            sizes={availableSizes.map((size) => size.value)}
+            colors={availableColors.map((color) => ({ name: color.name, hex: color.hex }))}
+            prints={printFilterData.availablePrints}
+          />
+        )}
         <div key={JSON.stringify(searchParams)} className="flex-1 animate-fade-in-up">
           <ProductGrid
             products={products}
-            emptyMessage="За обраними фільтрами нічого не знайдено."
+            emptyMessage={
+              isCategoryEmpty
+                ? "У цій категорії поки немає товарів."
+                : "За обраними фільтрами нічого не знайдено."
+            }
           />
           <CatalogPagination currentPage={page} totalPages={totalPages} searchParams={searchParams} />
         </div>

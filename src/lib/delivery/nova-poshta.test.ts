@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { decideAddressCheck, searchNovaPoshtaCities, verifyNovaPoshtaAddress } from "./nova-poshta";
+import { decideAddressCheck, formatCityLabel, searchNovaPoshtaCities, verifyNovaPoshtaAddress } from "./nova-poshta";
 
 describe("searchNovaPoshtaCities", () => {
   afterEach(() => {
@@ -165,5 +165,19 @@ describe("verifyNovaPoshtaAddress", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(verifyNovaPoshtaAddress("city-1", "wh-1")).resolves.toBe("unavailable");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("formatCityLabel", () => {
+  it("не повторює область, яка вже є в назві", () => {
+    expect(formatCityLabel({ name: "м. Дніпро, Дніпропетровська обл.", area: "Дніпропетровська" })).toBe(
+      "м. Дніпро, Дніпропетровська обл.",
+    );
+  });
+  it("дописує область, якої немає в назві", () => {
+    expect(formatCityLabel({ name: "с. Глухе", area: "Харківська" })).toBe("с. Глухе, Харківська");
+  });
+  it("без області повертає лише назву", () => {
+    expect(formatCityLabel({ name: "м. Харків", area: "" })).toBe("м. Харків");
   });
 });

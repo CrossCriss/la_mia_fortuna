@@ -17,6 +17,15 @@ export type NovaPoshtaWarehouse = {
   number: string;
 };
 
+// Назва міста з API вже буває з областю ("м. Дніпро, Дніпропетровська обл."):
+// область дописуємо лише якщо її ще немає в назві.
+export function formatCityLabel(city: { name: string; area?: string | null }): string {
+  const name = city.name.trim();
+  const area = (city.area ?? "").trim();
+  if (!area || name.includes(area)) return name;
+  return `${name}, ${area}`;
+}
+
 type NovaPoshtaResponse<T> = {
   success: boolean;
   data: T[];

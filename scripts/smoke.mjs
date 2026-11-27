@@ -77,6 +77,19 @@ async function main() {
     });
   }
 
+  // 1б. Сторінки категорій (slug-и з prisma/seed.ts): статус 200 і без екрана
+  // помилки. Next може віддати помилку рендера зі статусом 200, тому дивимось
+  // і на текст.
+  for (const path of ["/catalog/zymove-vzuttya", "/catalog/uggy"]) {
+    await check(`GET ${path} -> 200 без помилки`, async () => {
+      const { response, body } = await request(path);
+      if (response.status !== 200) return fail(`отримано статус ${response.status}`);
+      return body.includes("Щось пішло не так")
+        ? fail("у відповіді є текст «Щось пішло не так»")
+        : pass();
+    });
+  }
+
   // 2. robots.txt.
   await check("GET /robots.txt містить Disallow: /admin", async () => {
     const { response, body } = await request("/robots.txt");

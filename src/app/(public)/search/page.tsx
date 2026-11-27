@@ -57,7 +57,6 @@ export default async function SearchPage({
       orderBy: { createdAt: "desc" },
       skip: (requestedPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      relationLoadStrategy: "join",
     }),
   ]);
 
@@ -76,7 +75,6 @@ export default async function SearchPage({
           orderBy: { createdAt: "desc" },
           skip: (page - 1) * PAGE_SIZE,
           take: PAGE_SIZE,
-          relationLoadStrategy: "join",
         });
 
   const products = rawProducts.map((product) => ({

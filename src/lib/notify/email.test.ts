@@ -64,6 +64,20 @@ describe("formatOrderEmail", () => {
     expect(text).toContain("Разом: 3 000 ₴");
     expect(text).toContain("066 790 10 44");
   });
+
+  it("містить текстовий логотип у html", () => {
+    const { html } = formatOrderEmail(makeOrder());
+    expect(html).toContain("FORTUNA");
+    expect(html).toContain("LA MIA");
+  });
+
+  it("Viber виводиться номером без viber:// посилання", () => {
+    const { html, text } = formatOrderEmail(makeOrder());
+    expect(html).not.toContain("viber://");
+    expect(text).not.toContain("viber://");
+    expect(html).toContain("Viber: 066 790 10 44");
+    expect(text).toContain("Viber: 066 790 10 44");
+  });
 });
 
 describe("sendOrderEmail", () => {

@@ -12,7 +12,6 @@ export const findCategoryBySlug = unstable_cache(
     return prisma.category.findUnique({
       where: { slug },
       include: { children: true },
-      relationLoadStrategy: "join",
     });
   },
   ["category-by-slug"],
@@ -59,7 +58,6 @@ const getPrintCandidates = unstable_cache(
     return prisma.product.findMany({
       where,
       select: { id: true, name: true, variants: { select: { color: { select: { name: true } } } } },
-      relationLoadStrategy: "join",
     });
   },
   ["print-filter-candidates"],
